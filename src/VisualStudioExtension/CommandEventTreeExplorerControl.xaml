@@ -9,13 +9,16 @@
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="300"
              Name="MyToolWindow">
+    <!--DataContext="{Binding RelativeSource={RelativeSource Self}}"-->
+             
     <DockPanel>
         <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center">Command Event Tree Explorer</TextBlock>
+        <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center" Text="{Binding Text}"/>
         <Button DockPanel.Dock="Top" Content="Click me!" Click="button1_Click" Name="button1"/>
-        <TreeView x:Name="treeView" VerticalAlignment="Stretch">
+        <TreeView x:Name="treeView" VerticalAlignment="Stretch" ItemsSource="{Binding Commands}">
             <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding Items}">
-                    <TextBlock Text="{Binding Text}" />
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" />
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>

@@ -8,8 +8,23 @@ namespace Core.Graph
 {
     public class GraphNode
     {
-        public GraphNodeType Type;
-        public string Name;
-        public GraphNode[] Children;
+        public GraphNodeType Type { get; set; }
+        public string Name { get; set; }
+        public List<GraphNode> Children { get; set; }
+
+        public void AddChild(GraphNode child)
+        {
+            if (Children == null)
+            {
+                Children = new List<GraphNode>();
+            }
+
+            Children.Add(child);
+        }
+
+        public override string ToString()
+        {
+            return Name;
+        }
     }
 }

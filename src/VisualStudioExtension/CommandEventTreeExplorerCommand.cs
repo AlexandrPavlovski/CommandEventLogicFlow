@@ -100,9 +100,9 @@ namespace VisualStudioExtension
                 {
                     throw new NotSupportedException("Cannot create tool window");
                 }
-            });
 
-            
+                ((CommandEventTreeExplorer)window).SetGraph(Graph);
+            });
         }
     }
 }

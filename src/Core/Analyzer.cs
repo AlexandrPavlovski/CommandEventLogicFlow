@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Core.Graph;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -55,14 +56,14 @@ namespace Core
             _allInstantiatedTypesCache = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
         }
 
-        public void Start()
+        public async Task StartAsync()
         {
             var project = _solution.Projects.FirstOrDefault(x => x.Name == _cfg.ProjectThatContainsCommandInterface);
             if (project == null)
             {
                 return;
             }
-            var compilation = project.GetCompilationAsync().Result;
+            var compilation = await project.GetCompilationAsync();
             _commandInteraceTypeSymbol = compilation.GetTypeByMetadataName(_cfg.CommandInterfaceTypeNameWithNamespace);
 
             project = _solution.Projects.FirstOrDefault(x => x.Name == _cfg.ProjectThatContainsEventInterface);
@@ -70,11 +71,11 @@ namespace Core
             {
                 return;
             }
-            compilation = project.GetCompilationAsync().Result;
+            compilation = await project.GetCompilationAsync();
             _eventInteraceTypeSymbol = compilation.GetTypeByMetadataName(_cfg.EventInterfaceTypeNameWithNamespace);
 
-            FindInstantiationsAndHandlers(_commandInteraceTypeSymbol, true);
-            FindInstantiationsAndHandlers(_eventInteraceTypeSymbol, false);
+            await FindInstantiationsAndHandlersAsync(_commandInteraceTypeSymbol, true);
+            await FindInstantiationsAndHandlersAsync(_eventInteraceTypeSymbol, false);
 
             FindCommandToEventRelations();
 
@@ -87,30 +88,72 @@ namespace Core
 
             if (_commandInstantiations.Any())
             {
-                // todo
+                graph.Commands = new GraphNode[_commandHandlers.Keys.Count];
+                for (int i = 0; i < graph.Commands.Length; i++)
+                {
+                    var cmdSmbl = _commandHandlers.Keys.ElementAt(i);
+                    var graphNode = graph.Commands[i] = new GraphNode();
+                    var path = new HashSet<string>();
+                    BuildTreeRecursively(graphNode, cmdSmbl, path);
+                }
             }
 
-            graph.Commands = new GraphNode[]
-            {
-                new GraphNode()
-                {
-                    Name = "lol kek",
-                    Children = new GraphNode[]
-                    {
-                        new GraphNode()
-                        {
-                            Name = "pep bub"
-                        }
-                    }
-                }
-            };
+            //graph.Commands = new GraphNode[]
+            //{
+            //    new GraphNode()
+            //    {
+            //        Name = "lol kek",
+            //        Children = new GraphNode[]
+            //        {
+            //            new GraphNode()
+            //            {
+            //                Name = "pep bub"
+            //            }
+            //        }
+            //    }
+            //};
 
             return graph;
         }
 
-        private void FindInstantiationsAndHandlers(ITypeSymbol typeSymbol, bool isCommand)
+        private void BuildTreeRecursively(GraphNode commandNode, ITypeSymbol commandSymbol, HashSet<string> commandsAlreadyAddedToTree, int d = 0)
         {
-            var allTypeReferences = SymbolFinder.FindReferencesAsync(typeSymbol, _solution).Result;
+            if (commandsAlreadyAddedToTree.Contains(commandSymbol.Name))
+            {
+                return;
+            }
+            commandsAlreadyAddedToTree.Add(commandSymbol.Name);
+
+            commandNode.Name = commandSymbol.Name;
+
+            foreach (var cmdHnldr in _commandHandlers[commandSymbol])
+            {
+                var eventSymbols = _allInstantiatedTypesCache[cmdHnldr.MethodSymbol];
+                foreach (var eventSymbol in eventSymbols)
+                {
+                    var eventNode = new GraphNode { Name = eventSymbol.Name };
+                    commandNode.AddChild(eventNode);
+
+                    if (_eventHandlers.TryGetValue(eventSymbol, out var eventHandlers))
+                    {
+                        foreach (var evtHndlr in eventHandlers)
+                        {
+                            var commandSymbols = _allInstantiatedTypesCache[evtHndlr.MethodSymbol];
+                            foreach (var cmdSmbl in commandSymbols)
+                            {
+                                var cmdNode = new GraphNode { Name = cmdSmbl.Name };
+                                eventNode.AddChild(cmdNode);
+                                BuildTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private async Task FindInstantiationsAndHandlersAsync(ITypeSymbol typeSymbol, bool isCommand)
+        {
+            var allTypeReferences = await SymbolFinder.FindReferencesAsync(typeSymbol, _solution);
             if (allTypeReferences.Count() > 2)
             {
                 throw new Exception("More references than expected");
@@ -127,21 +170,21 @@ namespace Core
                 switch (nodeKind)
                 {
                     case SyntaxKind.SimpleBaseType:
-                        semanticModel = GetSemanticModel(refLoc.Location.SourceTree);
+                        semanticModel = await GetSemanticModelAsync(refLoc.Location.SourceTree);
                         var inheritorTypeSymbol = (ITypeSymbol)semanticModel.GetDeclaredSymbol(node.Parent.Parent);
                         if (inheritorTypeSymbol == null)
                         {
                             throw new Exception("GetDeclaredSymbol returned something unexpected");
                         }
 
-                        FindInstantiationsAndHandlers(inheritorTypeSymbol, isCommand);
+                        await FindInstantiationsAndHandlersAsync(inheritorTypeSymbol, isCommand);
                         break;
 
                     case SyntaxKind.IdentifierName:
                         if (node.Parent.IsKind(SyntaxKind.ObjectCreationExpression)
                             || node.Parent.Parent.IsKind(SyntaxKind.ObjectCreationExpression))
                         {
-                            AddInstantiationInfo(typeSymbol, refLoc, node, isCommand);
+                            await AddInstantiationInfoAsync(typeSymbol, refLoc, node, isCommand);
                         }
                         else
                         {
@@ -154,7 +197,7 @@ namespace Core
                             {
                                 if (node.Parent.Parent.Parent.IsKind(SyntaxKind.MethodDeclaration))
                                 {
-                                    semanticModel = GetSemanticModel(refLoc.Location.SourceTree);
+                                    semanticModel = await GetSemanticModelAsync(refLoc.Location.SourceTree);
                                     var methodDeclarationSymbol = (IMethodSymbol)semanticModel.GetDeclaredSymbol(node.Parent.Parent.Parent);
 
                                     if (IsHandlerType(methodDeclarationSymbol.ContainingType)
@@ -180,7 +223,7 @@ namespace Core
                             {
                                 if (node.Parent.Parent.Parent.ToString().StartsWith("Mapper.Map<"))
                                 {
-                                    AddInstantiationInfo(typeSymbol, refLoc, node, isCommand);
+                                    await AddInstantiationInfoAsync(typeSymbol, refLoc, node, isCommand);
                                 }
                                 //else
                                 //{
@@ -204,24 +247,25 @@ namespace Core
                 }
             }
 
-            // the second element in collection is always a list of references to the type's constructor
-            if (allTypeReferences.Count() == 2)
-            {
-                foreach (var refLoc in allTypeReferences.Last().Locations)
-                {
-                    var treeRoot = refLoc.Location.SourceTree.GetRoot();
-                    var node = treeRoot.FindNode(refLoc.Location.SourceSpan);
+            // THE CODE BELOW IS NEEDED FOR .NET 5.0 VERSION OF Roslyn
+            //// the second element in collection is always a list of references to the type's constructor
+            //if (allTypeReferences.Count() == 2)
+            //{
+            //    foreach (var refLoc in allTypeReferences.Last().Locations)
+            //    {
+            //        var treeRoot = refLoc.Location.SourceTree.GetRoot();
+            //        var node = treeRoot.FindNode(refLoc.Location.SourceSpan);
 
-                    // checking in case I missed something and previous comment is not true
-                    if (!node.Parent.IsKind(SyntaxKind.ObjectCreationExpression)
-                        && !node.Parent.Parent.IsKind(SyntaxKind.ObjectCreationExpression))
-                    {
-                        throw new Exception("Reference is not an object creation expression");
-                    }
+            //        // checking in case I missed something and previous comment is not true
+            //        if (!node.Parent.IsKind(SyntaxKind.ObjectCreationExpression)
+            //            && !node.Parent.Parent.IsKind(SyntaxKind.ObjectCreationExpression))
+            //        {
+            //            throw new Exception("Reference is not an object creation expression");
+            //        }
 
-                    AddInstantiationInfo(typeSymbol, refLoc, node, isCommand);
-                }
-            }
+            //        await AddInstantiationInfoAsync(typeSymbol, refLoc, node, isCommand);
+            //    }
+            //}
         }
 
         private void FindCommandToEventRelations()
@@ -230,19 +274,19 @@ namespace Core
             {
                 foreach (var handlerInfo in handlersKVP.Value)
                 {
-                    var instantiatedEvents = GetInstantiatedTypesWithinWholeCallTree(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: true);
+                    var instantiatedEvents = GetInstantiatedTypesWithinWholeCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: true);
                 }
             }
             foreach (var handlersKVP in _eventHandlers)
             {
                 foreach (var handlerInfo in handlersKVP.Value)
                 {
-                    var instantiatedCommands = GetInstantiatedTypesWithinWholeCallTree(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: false);
+                    var instantiatedCommands = GetInstantiatedTypesWithinWholeCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: false);
                 }
             }
         }
 
-        private List<ITypeSymbol> GetInstantiatedTypesWithinWholeCallTree(
+        private async Task<List<ITypeSymbol>> GetInstantiatedTypesWithinWholeCallTreeAsync(
             SyntaxNode methodNode,
             IMethodSymbol methodSymbol,
             bool isCommandHandler,
@@ -268,7 +312,7 @@ namespace Core
                 instantiatedTypes = new List<ITypeSymbol>();
             }
 
-            var semanticModel = GetSemanticModel(methodNode.SyntaxTree);
+            var semanticModel = await GetSemanticModelAsync(methodNode.SyntaxTree);
 
             var calledMethodNodes = methodNode.DescendantNodes().Where(x => x.IsKind(SyntaxKind.InvocationExpression) && x.ToString().StartsWith("nameof(") == false);
             foreach (var calledMethodNode in calledMethodNodes)
@@ -283,7 +327,7 @@ namespace Core
                 ISymbol[] implementations;
                 if (methodDeclarationSymbol.ContainingType.TypeKind == TypeKind.Interface)
                 {
-                    implementations = SymbolFinder.FindImplementationsAsync(methodDeclarationSymbol, _solution).Result.ToArray();
+                    implementations = (await SymbolFinder.FindImplementationsAsync(methodDeclarationSymbol, _solution)).ToArray();
                     //if (implementations.Length > 1)
                     //{
                     //    System.Diagnostics.Debugger.Break();
@@ -321,7 +365,7 @@ namespace Core
 
                     if (depth > 1000) System.Diagnostics.Debugger.Break();
 
-                    var typesInstantiatedWithin = GetInstantiatedTypesWithinWholeCallTree(
+                    var typesInstantiatedWithin = await GetInstantiatedTypesWithinWholeCallTreeAsync(
                         calledMethodDeclarationNode,
                         (IMethodSymbol)implementation,
                         isCommandHandler,
@@ -340,19 +384,19 @@ namespace Core
         }
 
 
-        private SemanticModel GetSemanticModel(SyntaxTree tree)
+        private async Task<SemanticModel> GetSemanticModelAsync(SyntaxTree tree)
         {
             if (!_semanticModelsCache.TryGetValue(tree.FilePath, out var semanticModel))
             {
                 var document = _solution.GetDocument(tree);
-                semanticModel = document.GetSemanticModelAsync().Result;
+                semanticModel = await document.GetSemanticModelAsync();
                 _semanticModelsCache[tree.FilePath] = semanticModel;
             }
 
             return semanticModel;
         }
 
-        private void AddInstantiationInfo(ITypeSymbol commandOrEventTypeSymbol, ReferenceLocation refLoc, SyntaxNode instantiationNode, bool isCommand)
+        private async Task AddInstantiationInfoAsync(ITypeSymbol commandOrEventTypeSymbol, ReferenceLocation refLoc, SyntaxNode instantiationNode, bool isCommand)
         {
             var store = isCommand
                 ? _commandInstantiations
@@ -374,7 +418,7 @@ namespace Core
                 ? _methodsThatDirectlyInstantiateCommands
                 : _methodsThatDirectlyInstantiateEvents;
 
-            var semanticModel = GetSemanticModel(refLoc.Location.SourceTree);
+            var semanticModel = await GetSemanticModelAsync(refLoc.Location.SourceTree);
             var methodDeclarationNode = GetMethodDeclarationThatContainsNode(instantiationNode);
             var methodDeclarationSymbol = (IMethodSymbol)semanticModel.GetDeclaredSymbol(methodDeclarationNode);
 

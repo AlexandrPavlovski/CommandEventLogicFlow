@@ -1,10 +1,13 @@
 ﻿using Core;
+using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Settings;
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Task = System.Threading.Tasks.Task;
@@ -51,8 +54,21 @@ namespace VisualStudioExtension
         /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            var settingsManager = new ShellSettingsManager(this);
-            SettingsStore configurationSettingsStore = settingsManager.GetReadOnlySettingsStore(SettingsScope.Configuration);
+            var componentModel = (IComponentModel)GetGlobalService(typeof(SComponentModel));
+            var workspace = componentModel.GetService<VisualStudioWorkspace>();
+            var solution = workspace.CurrentSolution;
+
+            //var project = solution.Projects.First(x => x.Name == "Cfs");
+            //var compilation = await project.GetCompilationAsync();
+            //var typeSymbol = compilation.GetTypeByMetadataName("Cfs.Platform.Domain.Messages.Event");
+
+            //var sw = Stopwatch.StartNew();
+            //var refs = await SymbolFinder.FindReferencesAsync(typeSymbol, solution);
+            //var t1 = sw.Elapsed;
+
+            //sw.Restart();
+            //refs = await SymbolFinder.FindReferencesAsync(typeSymbol, solution);
+            //var t2 = sw.Elapsed;
 
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
@@ -64,11 +80,8 @@ namespace VisualStudioExtension
             cfg.HandlerMethodNames = page.HandlerMethodNames;
             cfg.HandlerMarkerInterfaceTypeNameWithNamespace = page.HandlerMarkerInterfaceTypeNameWithNamespace;
 
-            var componentModel = (IComponentModel)GetGlobalService(typeof(SComponentModel));
-            var workspace = componentModel.GetService<VisualStudioWorkspace>();
-
-            var analyzer = new Analyzer(workspace.CurrentSolution, cfg);
-            analyzer.Start();
+            var analyzer = new Analyzer(solution, cfg);
+            await analyzer.StartAsync();
             var graph = analyzer.GetCommandsEventsGraph();
 
             // When initialized asynchronously, the current thread may be a background thread at this point.

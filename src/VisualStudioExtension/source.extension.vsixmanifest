@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="VisualStudioExtension.66ec5cd7-b134-487f-b6e0-0b085873894b" Version="1.10001" Language="en-US" Publisher="Alex P" />
+        <Identity Id="VisualStudioExtension.66ec5cd7-b134-487f-b6e0-0b085873894b" Version="1.10004" Language="en-US" Publisher="Alex P" />
         <DisplayName>Command event logic flow</DisplayName>
         <Description xml:space="preserve">Shows logic flow of CQRS and event sourcing projects</Description>
     </Metadata>

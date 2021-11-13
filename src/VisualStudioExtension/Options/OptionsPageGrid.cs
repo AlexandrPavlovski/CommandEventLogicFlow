@@ -23,7 +23,7 @@ namespace VisualStudioExtension
         public string CommandInterfaceTypeNameWithNamespace { get; set; }
 
         [Category("My Category")]
-        [DisplayName("Even tInterface Type Name With Namespace")]
+        [DisplayName("Event Interface Type Name With Namespace")]
         public string EventInterfaceTypeNameWithNamespace { get; set; }
 
         [Category("My Category")]

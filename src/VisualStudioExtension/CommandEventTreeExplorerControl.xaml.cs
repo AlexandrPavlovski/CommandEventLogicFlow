@@ -1,7 +1,9 @@
-﻿using System.Collections.ObjectModel;
+﻿using Core.Graph;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
+using System.Linq;
 
 namespace VisualStudioExtension
 {
@@ -10,20 +12,39 @@ namespace VisualStudioExtension
     /// </summary>
     public partial class CommandEventTreeExplorerControl : UserControl
     {
+        public VM vm { get; set; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="CommandEventTreeExplorerControl"/> class.
         /// </summary>
         public CommandEventTreeExplorerControl()
         {
-            this.InitializeComponent();
+            vm = new VM();
 
-            MenuItem root = new MenuItem() { Text = "Menu" };
-            MenuItem childItem1 = new MenuItem() { Text = "Child item #1" };
-            childItem1.Items.Add(new MenuItem() { Text = "Child item #1.1" });
-            childItem1.Items.Add(new MenuItem() { Text = "Child item #1.2" });
-            root.Items.Add(childItem1);
-            root.Items.Add(new MenuItem() { Text = "Child item #2" });
-            treeView.Items.Add(root);
+            InitializeComponent();
+            DataContext = vm;
+
+            //MenuItem root = new MenuItem() { Text = "Menu" };
+            //MenuItem childItem1 = new MenuItem() { Text = "Child item #1" };
+            //childItem1.Items.Add(new MenuItem() { Text = "Child item #1.1" });
+            //childItem1.Items.Add(new MenuItem() { Text = "Child item #1.2" });
+            //root.Items.Add(childItem1);
+            //root.Items.Add(new MenuItem() { Text = "Child item #2" });
+            //treeView.Items.Add(root);
+
+            //vm.Commands.Add(new GraphNode() { Name = "ASDASD" });
+        }
+
+
+        public void SetGraph(CommandsEventsGraph graph)
+        {
+            if (graph.Commands != null)
+            {
+                foreach (var item in graph.Commands)
+                {
+                    vm.Commands.Add(item);
+                }
+            }
         }
 
         /// <summary>
@@ -38,6 +59,18 @@ namespace VisualStudioExtension
             MessageBox.Show(
                 string.Format(System.Globalization.CultureInfo.CurrentUICulture, "Invoked '{0}'", this.ToString()),
                 "Command Event Tree Explorer");
+        }
+    }
+
+    public class VM
+    {
+        public ObservableCollection<GraphNode> Commands { get; set; }
+        public string Text { get; set; }
+
+        public VM()
+        {
+            Commands = new ObservableCollection<GraphNode>();
+            Text = "asdads";
         }
     }
 

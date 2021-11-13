@@ -1,14 +1,19 @@
-﻿using System;
-using System.Configuration;
-using Core;
+﻿using Core;
 using Microsoft.Build.Locator;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace ConsoleApp
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var cfg = new Config();
 
@@ -26,12 +31,13 @@ namespace ConsoleApp
             //var t = MSBuildLocator.QueryVisualStudioInstances().First();
             //MSBuildLocator.RegisterInstance(t);
 
-            var msWorkspace = MSBuildWorkspace.Create();
+            var workspace = MSBuildWorkspace.Create();
             var solutionPath = ConfigurationManager.AppSettings["SolutionPath"];
-            var solution = msWorkspace.OpenSolutionAsync(solutionPath).Result;
+            var solution = await workspace.OpenSolutionAsync(solutionPath);
 
             var analyzer = new Analyzer(solution, cfg);
-            analyzer.Start();
+            await analyzer.StartAsync();
+            var g = analyzer.GetCommandsEventsGraph();
         }
     }
 }
