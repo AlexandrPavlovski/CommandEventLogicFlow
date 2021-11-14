@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.MSBuild;
 
 namespace Core
 {
@@ -21,43 +22,42 @@ namespace Core
         private INamedTypeSymbol _commandInteraceTypeSymbol;
         private INamedTypeSymbol _eventInteraceTypeSymbol;
 
-        private readonly SymbolEqualityComparer _symbolEqualityComparer;
+        private readonly SymbolEqualityComparer _symbolEqualityComparer = new SymbolEqualityComparer();
 
-        private readonly Dictionary<string, SemanticModel> _semanticModelsCache = new Dictionary<string, SemanticModel>();
+        private Dictionary<string, SemanticModel> _semanticModelsCache;
 
-        private readonly Dictionary<ITypeSymbol, List<InstantiationInfo>> _commandInstantiations;
-        private readonly Dictionary<ITypeSymbol, List<InstantiationInfo>> _eventInstantiations;
+        private Dictionary<ITypeSymbol, List<InstantiationInfo>> _commandInstantiations;
+        private Dictionary<ITypeSymbol, List<InstantiationInfo>> _eventInstantiations;
 
-        private readonly Dictionary<ITypeSymbol, List<HandlerInfo>> _commandHandlers;
-        private readonly Dictionary<ITypeSymbol, List<HandlerInfo>> _eventHandlers;
+        private Dictionary<ITypeSymbol, List<HandlerInfo>> _commandHandlers;
+        private Dictionary<ITypeSymbol, List<HandlerInfo>> _eventHandlers;
 
-        private readonly Dictionary<IMethodSymbol, List<ITypeSymbol>> _methodsThatDirectlyInstantiateCommands;
-        private readonly Dictionary<IMethodSymbol, List<ITypeSymbol>> _methodsThatDirectlyInstantiateEvents;
+        private Dictionary<IMethodSymbol, List<ITypeSymbol>> _methodsThatDirectlyInstantiateCommands;
+        private Dictionary<IMethodSymbol, List<ITypeSymbol>> _methodsThatDirectlyInstantiateEvents;
 
-        private readonly Dictionary<IMethodSymbol, List<ITypeSymbol>> _allInstantiatedTypesCache;
+        private Dictionary<IMethodSymbol, List<ITypeSymbol>> _allInstantiatedTypesCache;
 
         private List<string> temp = new List<string>();
 
-        public Analyzer(Solution solution, Config cfg)
+        public Analyzer(Config cfg)
         {
-            _solution = solution;
             _cfg = cfg;
-
-            _symbolEqualityComparer = new SymbolEqualityComparer();
-            _commandInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
-            _eventInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
-
-            _commandHandlers = new Dictionary<ITypeSymbol, List<HandlerInfo>>(_symbolEqualityComparer);
-            _eventHandlers = new Dictionary<ITypeSymbol, List<HandlerInfo>>(_symbolEqualityComparer);
-
-            _methodsThatDirectlyInstantiateCommands = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
-            _methodsThatDirectlyInstantiateEvents = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
-
-            _allInstantiatedTypesCache = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
         }
 
         public async Task StartAsync()
         {
+            _semanticModelsCache = new Dictionary<string, SemanticModel>();
+            _commandInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
+            _eventInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
+            _commandHandlers = new Dictionary<ITypeSymbol, List<HandlerInfo>>(_symbolEqualityComparer);
+            _eventHandlers = new Dictionary<ITypeSymbol, List<HandlerInfo>>(_symbolEqualityComparer);
+            _methodsThatDirectlyInstantiateCommands = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
+            _methodsThatDirectlyInstantiateEvents = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
+            _allInstantiatedTypesCache = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
+
+            var workspace = MSBuildWorkspace.Create();
+            _solution = await workspace.OpenSolutionAsync(_cfg.SolutionPath);
+
             var project = _solution.Projects.FirstOrDefault(x => x.Name == _cfg.ProjectThatContainsCommandInterface);
             if (project == null)
             {
@@ -77,7 +77,15 @@ namespace Core
             await FindInstantiationsAndHandlersAsync(_commandInteraceTypeSymbol, true);
             await FindInstantiationsAndHandlersAsync(_eventInteraceTypeSymbol, false);
 
-            FindCommandToEventRelations();
+            //foreach (var item in _commandHandlers.Keys)
+            //{
+            //    if (_commandInstantiations.ContainsKey(item) == false)
+            //    {
+            //        temp.Add(item.Name);
+            //    }
+            //}
+
+            await FindCommandToEventRelations();
 
             //File.WriteAllLines(@"C:/temp.cs", temp);
         }
@@ -97,21 +105,6 @@ namespace Core
                     BuildTreeRecursively(graphNode, cmdSmbl, path);
                 }
             }
-
-            //graph.Commands = new GraphNode[]
-            //{
-            //    new GraphNode()
-            //    {
-            //        Name = "lol kek",
-            //        Children = new GraphNode[]
-            //        {
-            //            new GraphNode()
-            //            {
-            //                Name = "pep bub"
-            //            }
-            //        }
-            //    }
-            //};
 
             return graph;
         }
@@ -247,46 +240,45 @@ namespace Core
                 }
             }
 
-            // THE CODE BELOW IS NEEDED FOR .NET 5.0 VERSION OF Roslyn
-            //// the second element in collection is always a list of references to the type's constructor
-            //if (allTypeReferences.Count() == 2)
-            //{
-            //    foreach (var refLoc in allTypeReferences.Last().Locations)
-            //    {
-            //        var treeRoot = refLoc.Location.SourceTree.GetRoot();
-            //        var node = treeRoot.FindNode(refLoc.Location.SourceSpan);
+            // the second element in collection is always a list of references to the type's constructor
+            if (allTypeReferences.Count() == 2)
+            {
+                foreach (var refLoc in allTypeReferences.Last().Locations)
+                {
+                    var treeRoot = refLoc.Location.SourceTree.GetRoot();
+                    var node = treeRoot.FindNode(refLoc.Location.SourceSpan);
 
-            //        // checking in case I missed something and previous comment is not true
-            //        if (!node.Parent.IsKind(SyntaxKind.ObjectCreationExpression)
-            //            && !node.Parent.Parent.IsKind(SyntaxKind.ObjectCreationExpression))
-            //        {
-            //            throw new Exception("Reference is not an object creation expression");
-            //        }
+                    // checking in case I missed something and previous comment is not true
+                    if (!node.Parent.IsKind(SyntaxKind.ObjectCreationExpression)
+                        && !node.Parent.Parent.IsKind(SyntaxKind.ObjectCreationExpression))
+                    {
+                        throw new Exception("Reference is not an object creation expression");
+                    }
 
-            //        await AddInstantiationInfoAsync(typeSymbol, refLoc, node, isCommand);
-            //    }
-            //}
+                    await AddInstantiationInfoAsync(typeSymbol, refLoc, node, isCommand);
+                }
+            }
         }
 
-        private void FindCommandToEventRelations()
+        private async Task FindCommandToEventRelations()
         {
             foreach (var handlersKVP in _commandHandlers)
             {
                 foreach (var handlerInfo in handlersKVP.Value)
                 {
-                    var instantiatedEvents = GetInstantiatedTypesWithinWholeCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: true);
+                    var instantiatedEvents = await GetInstantiatedTypesWithinCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: true);
                 }
             }
             foreach (var handlersKVP in _eventHandlers)
             {
                 foreach (var handlerInfo in handlersKVP.Value)
                 {
-                    var instantiatedCommands = GetInstantiatedTypesWithinWholeCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: false);
+                    var instantiatedCommands = await GetInstantiatedTypesWithinCallTreeAsync(handlerInfo.MethodNode, handlerInfo.MethodSymbol, isCommandHandler: false);
                 }
             }
         }
 
-        private async Task<List<ITypeSymbol>> GetInstantiatedTypesWithinWholeCallTreeAsync(
+        private async Task<List<ITypeSymbol>> GetInstantiatedTypesWithinCallTreeAsync(
             SyntaxNode methodNode,
             IMethodSymbol methodSymbol,
             bool isCommandHandler,
@@ -365,7 +357,7 @@ namespace Core
 
                     if (depth > 1000) System.Diagnostics.Debugger.Break();
 
-                    var typesInstantiatedWithin = await GetInstantiatedTypesWithinWholeCallTreeAsync(
+                    var typesInstantiatedWithin = await GetInstantiatedTypesWithinCallTreeAsync(
                         calledMethodDeclarationNode,
                         (IMethodSymbol)implementation,
                         isCommandHandler,

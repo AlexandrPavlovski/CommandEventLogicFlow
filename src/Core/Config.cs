@@ -8,6 +8,7 @@ namespace Core
 {
     public class Config
     {
+        public string SolutionPath { get; set; }
         public string ProjectThatContainsCommandInterface { get; set; }
         public string ProjectThatContainsEventInterface { get; set; }
         public string CommandInterfaceTypeNameWithNamespace { get; set; }

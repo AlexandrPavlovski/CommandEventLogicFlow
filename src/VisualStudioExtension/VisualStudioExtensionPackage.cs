@@ -1,7 +1,5 @@
 ﻿using Core;
-using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.VisualStudio.ComponentModelHost;
-using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Settings;
@@ -54,25 +52,14 @@ namespace VisualStudioExtension
         /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            var componentModel = (IComponentModel)GetGlobalService(typeof(SComponentModel));
-            var workspace = componentModel.GetService<VisualStudioWorkspace>();
-            var solution = workspace.CurrentSolution;
-
-            //var project = solution.Projects.First(x => x.Name == "Cfs");
-            //var compilation = await project.GetCompilationAsync();
-            //var typeSymbol = compilation.GetTypeByMetadataName("Cfs.Platform.Domain.Messages.Event");
-
-            //var sw = Stopwatch.StartNew();
-            //var refs = await SymbolFinder.FindReferencesAsync(typeSymbol, solution);
-            //var t1 = sw.Elapsed;
-
-            //sw.Restart();
-            //refs = await SymbolFinder.FindReferencesAsync(typeSymbol, solution);
-            //var t2 = sw.Elapsed;
+            //var componentModel = (IComponentModel)GetGlobalService(typeof(SComponentModel));
+            //var workspace = componentModel.GetService<VisualStudioWorkspace>();
+            //var solution = workspace.CurrentSolution;
 
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
 
+            cfg.SolutionPath = @"c:/lol/kek";
             cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
             cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
             cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;
@@ -80,14 +67,12 @@ namespace VisualStudioExtension
             cfg.HandlerMethodNames = page.HandlerMethodNames;
             cfg.HandlerMarkerInterfaceTypeNameWithNamespace = page.HandlerMarkerInterfaceTypeNameWithNamespace;
 
-            var analyzer = new Analyzer(solution, cfg);
-            await analyzer.StartAsync();
-            var graph = analyzer.GetCommandsEventsGraph();
+            var analyzer = new Analyzer(cfg);
 
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await CommandEventTreeExplorerCommand.InitializeAsync(this, graph);
+            await CommandEventTreeExplorerCommand.InitializeAsync(this, analyzer);
         }
 
         #endregion

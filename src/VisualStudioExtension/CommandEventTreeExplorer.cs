@@ -1,4 +1,5 @@
-﻿using Core.Graph;
+﻿using Core;
+using Core.Graph;
 using Microsoft.VisualStudio.Shell;
 using System;
 using System.Runtime.InteropServices;
@@ -32,9 +33,9 @@ namespace VisualStudioExtension
             this.Content = new CommandEventTreeExplorerControl();
         }
 
-        public void SetGraph(CommandsEventsGraph graph)
+        public void SetAnalyzer(Analyzer analyzer)
         {
-            ((CommandEventTreeExplorerControl)Content).SetGraph(graph);
+            ((CommandEventTreeExplorerControl)Content).Analyzer = analyzer;
         }
     }
 }

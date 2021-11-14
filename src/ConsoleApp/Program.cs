@@ -17,6 +17,7 @@ namespace ConsoleApp
         {
             var cfg = new Config();
 
+            cfg.SolutionPath = ConfigurationManager.AppSettings["SolutionPath"];
             cfg.ProjectThatContainsCommandInterface = ConfigurationManager.AppSettings["ProjectThatContainsCommandInterface"];
             cfg.ProjectThatContainsEventInterface = ConfigurationManager.AppSettings["ProjectThatContainsEventInterface"];
             cfg.CommandInterfaceTypeNameWithNamespace = ConfigurationManager.AppSettings["CommandInterfaceTypeNameWithNamespace"];
@@ -31,11 +32,7 @@ namespace ConsoleApp
             //var t = MSBuildLocator.QueryVisualStudioInstances().First();
             //MSBuildLocator.RegisterInstance(t);
 
-            var workspace = MSBuildWorkspace.Create();
-            var solutionPath = ConfigurationManager.AppSettings["SolutionPath"];
-            var solution = await workspace.OpenSolutionAsync(solutionPath);
-
-            var analyzer = new Analyzer(solution, cfg);
+            var analyzer = new Analyzer(cfg);
             await analyzer.StartAsync();
             var g = analyzer.GetCommandsEventsGraph();
         }

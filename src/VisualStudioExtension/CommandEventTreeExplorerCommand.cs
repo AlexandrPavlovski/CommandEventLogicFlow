@@ -1,6 +1,6 @@
-﻿using Core.Graph;
+﻿using Core;
+using Core.Graph;
 using Microsoft.CodeAnalysis;
-using Microsoft.VisualStudio.LanguageServices;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
@@ -68,13 +68,13 @@ namespace VisualStudioExtension
             }
         }
 
-        private CommandsEventsGraph Graph;
+        private Analyzer _analyzer;
 
         /// <summary>
         /// Initializes the singleton instance of the command.
         /// </summary>
         /// <param name="package">Owner package, not null.</param>
-        public static async Task InitializeAsync(AsyncPackage package, CommandsEventsGraph graph)
+        public static async Task InitializeAsync(AsyncPackage package, Analyzer analyzer)
         {
             // Switch to the main thread - the call to AddCommand in CommandEventTreeExplorerCommand's constructor requires
             // the UI thread.
@@ -83,7 +83,7 @@ namespace VisualStudioExtension
             OleMenuCommandService commandService = await package.GetServiceAsync((typeof(IMenuCommandService))) as OleMenuCommandService;
             Instance = new CommandEventTreeExplorerCommand(package, commandService);
 
-            Instance.Graph = graph;
+            Instance._analyzer = analyzer;
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace VisualStudioExtension
                     throw new NotSupportedException("Cannot create tool window");
                 }
 
-                ((CommandEventTreeExplorer)window).SetGraph(Graph);
+                ((CommandEventTreeExplorer)window).SetAnalyzer(_analyzer);
             });
         }
     }
