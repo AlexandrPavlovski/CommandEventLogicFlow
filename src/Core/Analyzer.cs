@@ -39,13 +39,24 @@ namespace Core
 
         private List<string> temp = new List<string>();
 
+
         public Analyzer(Config cfg)
         {
             _cfg = cfg;
         }
 
-        public async Task StartAsync()
+        public void SetSolutionPath(string solutionPath)
         {
+            _cfg.SolutionPath = solutionPath;
+        }
+
+        public async Task StartAsync(IProgress<AnalysisProgress> progress = null)
+        {
+            if (progress != null)
+            {
+                progress.Report(new AnalysisProgress(0, "Starting"));
+            }
+
             _semanticModelsCache = new Dictionary<string, SemanticModel>();
             _commandInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
             _eventInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
@@ -54,6 +65,11 @@ namespace Core
             _methodsThatDirectlyInstantiateCommands = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
             _methodsThatDirectlyInstantiateEvents = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
             _allInstantiatedTypesCache = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
+
+            if (progress != null)
+            {
+                progress.Report(new AnalysisProgress(10, "Getting solution compilation"));
+            }
 
             var workspace = MSBuildWorkspace.Create();
             _solution = await workspace.OpenSolutionAsync(_cfg.SolutionPath);
@@ -74,6 +90,11 @@ namespace Core
             compilation = await project.GetCompilationAsync();
             _eventInteraceTypeSymbol = compilation.GetTypeByMetadataName(_cfg.EventInterfaceTypeNameWithNamespace);
 
+            if (progress != null)
+            {
+                progress.Report(new AnalysisProgress(40, "Searching for commands and events"));
+            }
+
             await FindInstantiationsAndHandlersAsync(_commandInteraceTypeSymbol, true);
             await FindInstantiationsAndHandlersAsync(_eventInteraceTypeSymbol, false);
 
@@ -84,6 +105,11 @@ namespace Core
             //        temp.Add(item.Name);
             //    }
             //}
+
+            if (progress != null)
+            {
+                progress.Report(new AnalysisProgress(70, "Building relations between commands and events"));
+            }
 
             await FindCommandToEventRelations();
 
@@ -412,16 +438,21 @@ namespace Core
 
             var semanticModel = await GetSemanticModelAsync(refLoc.Location.SourceTree);
             var methodDeclarationNode = GetMethodDeclarationThatContainsNode(instantiationNode);
-            var methodDeclarationSymbol = (IMethodSymbol)semanticModel.GetDeclaredSymbol(methodDeclarationNode);
 
-            if (store2.TryGetValue(methodDeclarationSymbol, out var typeSymbols))
+            // method declaration will be null here if event object is created outside of any method
+            if (methodDeclarationNode != null)
             {
-                typeSymbols.Add(commandOrEventTypeSymbol);
-            }
-            else
-            {
-                typeSymbols = new List<ITypeSymbol>() { commandOrEventTypeSymbol };
-                store2[methodDeclarationSymbol] = typeSymbols;
+                var methodDeclarationSymbol = (IMethodSymbol)semanticModel.GetDeclaredSymbol(methodDeclarationNode);
+
+                if (store2.TryGetValue(methodDeclarationSymbol, out var typeSymbols))
+                {
+                    typeSymbols.Add(commandOrEventTypeSymbol);
+                }
+                else
+                {
+                    typeSymbols = new List<ITypeSymbol>() { commandOrEventTypeSymbol };
+                    store2[methodDeclarationSymbol] = typeSymbols;
+                }
             }
         }
 
@@ -456,7 +487,7 @@ namespace Core
         private SyntaxNode GetMethodDeclarationThatContainsNode(SyntaxNode node)
         {
             var ancestorNode = node.Parent;
-            while (!ancestorNode.IsKind(SyntaxKind.MethodDeclaration))
+            while (!ancestorNode.IsKind(SyntaxKind.MethodDeclaration) && ancestorNode != null)
             {
                 ancestorNode = ancestorNode.Parent;
             }

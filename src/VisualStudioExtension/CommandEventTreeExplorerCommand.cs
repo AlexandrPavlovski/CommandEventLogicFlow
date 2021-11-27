@@ -68,13 +68,11 @@ namespace VisualStudioExtension
             }
         }
 
-        private Analyzer _analyzer;
-
         /// <summary>
         /// Initializes the singleton instance of the command.
         /// </summary>
         /// <param name="package">Owner package, not null.</param>
-        public static async Task InitializeAsync(AsyncPackage package, Analyzer analyzer)
+        public static async Task InitializeAsync(AsyncPackage package)
         {
             // Switch to the main thread - the call to AddCommand in CommandEventTreeExplorerCommand's constructor requires
             // the UI thread.
@@ -82,8 +80,6 @@ namespace VisualStudioExtension
 
             OleMenuCommandService commandService = await package.GetServiceAsync((typeof(IMenuCommandService))) as OleMenuCommandService;
             Instance = new CommandEventTreeExplorerCommand(package, commandService);
-
-            Instance._analyzer = analyzer;
         }
 
         /// <summary>
@@ -100,8 +96,6 @@ namespace VisualStudioExtension
                 {
                     throw new NotSupportedException("Cannot create tool window");
                 }
-
-                ((CommandEventTreeExplorer)window).SetAnalyzer(_analyzer);
             });
         }
     }

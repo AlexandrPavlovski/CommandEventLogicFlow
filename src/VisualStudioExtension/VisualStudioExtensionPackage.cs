@@ -1,13 +1,18 @@
 ﻿using Core;
+//using EnvDTE;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Events;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Shell.Settings;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 
 namespace VisualStudioExtension
@@ -59,7 +64,7 @@ namespace VisualStudioExtension
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
 
-            cfg.SolutionPath = @"c:/lol/kek";
+            cfg.SolutionPath = @"c:/Projects/TheraNest/repositories/zertistherapy/source/Theranest.sln";
             cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
             cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
             cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;
@@ -67,12 +72,41 @@ namespace VisualStudioExtension
             cfg.HandlerMethodNames = page.HandlerMethodNames;
             cfg.HandlerMarkerInterfaceTypeNameWithNamespace = page.HandlerMarkerInterfaceTypeNameWithNamespace;
 
-            var analyzer = new Analyzer(cfg);
 
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
-            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await CommandEventTreeExplorerCommand.InitializeAsync(this, analyzer);
+            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            var solution = (IVsSolution)GetGlobalService(typeof(IVsSolution));
+            solution.GetSolutionInfo(out _, out string solutionFilePath, out _);
+            if (string.IsNullOrEmpty(solutionFilePath) == false)
+            {
+                cfg.SolutionPath = solutionFilePath;
+            }
+
+            var analyzer = new Analyzer(cfg);
+            Orchestrator.Analyzer = analyzer;
+            
+            await CommandEventTreeExplorerCommand.InitializeAsync(this);
+
+            //SolutionEvents.OnAfterOpenSolution += orchestrator.HandleAfterOpenSolution;
+            //SolutionEvents.OnBeforeCloseSolution += orchestrator.HandleBeforeCloseSolution;
+
+            //bool isSolutionLoaded = await IsSolutionLoadedAsync();
+            //if (isSolutionLoaded)
+            //{
+            //    orchestrator.HandleAfterOpenSolution();
+            //}
+        }
+
+        private async Task<bool> IsSolutionLoadedAsync()
+        {
+            await JoinableTaskFactory.SwitchToMainThreadAsync();
+            var solService = (IVsSolution)(await GetServiceAsync(typeof(SVsSolution)));
+
+            ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
+
+            return value is bool isSolOpen && isSolOpen;
         }
 
         #endregion

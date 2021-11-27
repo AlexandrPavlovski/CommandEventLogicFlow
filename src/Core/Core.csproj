@@ -130,6 +130,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AnalysisProgress.cs" />
     <Compile Include="Analyzer.cs" />
     <Compile Include="Graph\CommandsEventsGraph.cs" />
     <Compile Include="Config.cs" />

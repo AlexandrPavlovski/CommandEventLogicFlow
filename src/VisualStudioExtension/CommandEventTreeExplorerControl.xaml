@@ -7,20 +7,29 @@
              Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
-             d:DesignHeight="300" d:DesignWidth="300"
+             d:DesignHeight="300" d:DesignWidth="600"
              Name="MyToolWindow">
     <!--DataContext="{Binding RelativeSource={RelativeSource Self}}"-->
              
     <DockPanel>
         <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center">Command Event Tree Explorer</TextBlock>
         <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center" Text="{Binding Text}"/>
-        <Button DockPanel.Dock="Top" Content="Click me!" Click="button1_Click" Name="button1"/>
-        <TreeView x:Name="treeView" VerticalAlignment="Stretch" ItemsSource="{Binding Commands}">
+
+        <Button x:Name="analyzeBtn" DockPanel.Dock="Top" Content="Analyze" Click="analyzeBtn_Click"/>
+
+        <TreeView x:Name="treeView" DockPanel.Dock="Top" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                     <TextBlock Text="{Binding Name}" />
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>
+
+        <StackPanel x:Name="progressContainer" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Stretch" Visibility="Collapsed" >
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
+                <TextBlock x:Name="progressText" Text="LOL" Margin="0 0 0 5" HorizontalAlignment="Center"/>
+                <ProgressBar x:Name="progressBar" Minimum="0" Maximum="100" Width="150" Height="10"/>
+            </StackPanel>
+        </StackPanel>
     </DockPanel>
 </UserControl>

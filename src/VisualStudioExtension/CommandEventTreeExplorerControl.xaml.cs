@@ -5,6 +5,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Linq;
 using Core;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using System;
 
 namespace VisualStudioExtension
 {
@@ -13,9 +16,9 @@ namespace VisualStudioExtension
     /// </summary>
     public partial class CommandEventTreeExplorerControl : UserControl
     {
-        public Analyzer Analyzer { get; set; }
-
         public VM vm { get; set; }
+
+        private IProgress<AnalysisProgress> _progressUpdater;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CommandEventTreeExplorerControl"/> class.
@@ -26,6 +29,20 @@ namespace VisualStudioExtension
 
             InitializeComponent();
             DataContext = vm;
+
+            _progressUpdater = new Progress<AnalysisProgress>(x => { progressText.Text = x.Description; progressBar.Value = x.Percent; });
+
+            //analyzeBtn.IsEnabled = false;
+        }
+
+        public void EnableAnalyzeButton()
+        {
+            analyzeBtn.IsEnabled = true;
+        }
+
+        public void DisableAnalyzeButton()
+        {
+            analyzeBtn.IsEnabled = false;
         }
 
         /// <summary>
@@ -35,18 +52,32 @@ namespace VisualStudioExtension
         /// <param name="e">The event args.</param>
         [SuppressMessage("Microsoft.Globalization", "CA1300:SpecifyMessageBoxOptions", Justification = "Sample code")]
         [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:ElementMustBeginWithUpperCaseLetter", Justification = "Default event handler naming pattern")]
-        private async void button1_Click(object sender, RoutedEventArgs e)
+        private async void analyzeBtn_Click(object sender, RoutedEventArgs e)
         {
-            await Analyzer.StartAsync();
-            var graph = Analyzer.GetCommandsEventsGraph();
+            DisableAnalyzeButton();
+            progressBar.Value = 0;
+
+            treeView.Visibility = Visibility.Collapsed;
+            progressContainer.Visibility = Visibility.Visible;
+
+            //await System.Threading.Tasks.Task.Delay(1000);
+            //vm.Commands.Add(new GraphNode { Name = "keelekekekekkekekekekekekkekekekkekekekkekekekkekekekekkekekk" });
+
+            await Orchestrator.Analyzer.StartAsync(_progressUpdater);
+            var graph = Orchestrator.Analyzer.GetCommandsEventsGraph();
 
             if (graph.Commands != null)
             {
-                foreach (var item in graph.Commands)
+                foreach (var item in graph.Commands.OrderBy(x => x.Name))
                 {
                     vm.Commands.Add(item);
                 }
             }
+
+            progressContainer.Visibility = Visibility.Collapsed;
+            treeView.Visibility = Visibility.Visible;
+
+            EnableAnalyzeButton();
         }
     }
 
