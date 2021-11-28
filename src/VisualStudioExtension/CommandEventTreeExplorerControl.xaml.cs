@@ -8,31 +8,50 @@ using Core;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 
 namespace VisualStudioExtension
 {
-    /// <summary>
-    /// Interaction logic for CommandEventTreeExplorerControl.
-    /// </summary>
-    public partial class CommandEventTreeExplorerControl : UserControl
+    public partial class CommandEventTreeExplorerControl : UserControl, INotifyPropertyChanged
     {
-        public VM vm { get; set; }
+        public event PropertyChangedEventHandler PropertyChanged;
+
+
+        public ObservableCollection<GraphNode> Commands { get; set; }
+
+        private string _searchString { get; set; }
+        public string SearchString 
+        { 
+            get => _searchString;
+            set
+            {
+                _searchString = value;
+                OnSearchStringChanged();
+                OnPropertyChanged();
+            }
+        }
 
         private IProgress<AnalysisProgress> _progressUpdater;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CommandEventTreeExplorerControl"/> class.
-        /// </summary>
         public CommandEventTreeExplorerControl()
         {
-            vm = new VM();
-
-            InitializeComponent();
-            DataContext = vm;
-
             _progressUpdater = new Progress<AnalysisProgress>(x => { progressText.Text = x.Description; progressBar.Value = x.Percent; });
 
+            Commands = new ObservableCollection<GraphNode>();
+
+            InitializeComponent();
+            DataContext = this;
+
             //analyzeBtn.IsEnabled = false;
+
+            Commands.Add(GetTestData("asdasda"));
+            Commands.Add(GetTestData("rerferg"));
+            Commands.Add(GetTestData("dsvxvxc"));
+            Commands.Add(GetTestData("ssssss"));
+            Commands.Add(GetTestData("ytjtyjghn"));
+            Commands.Add(GetTestData("pokpokpokp"));
         }
 
         public void EnableAnalyzeButton()
@@ -45,13 +64,6 @@ namespace VisualStudioExtension
             analyzeBtn.IsEnabled = false;
         }
 
-        /// <summary>
-        /// Handles click on the button by displaying a message box.
-        /// </summary>
-        /// <param name="sender">The event sender.</param>
-        /// <param name="e">The event args.</param>
-        [SuppressMessage("Microsoft.Globalization", "CA1300:SpecifyMessageBoxOptions", Justification = "Sample code")]
-        [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:ElementMustBeginWithUpperCaseLetter", Justification = "Default event handler naming pattern")]
         private async void analyzeBtn_Click(object sender, RoutedEventArgs e)
         {
             DisableAnalyzeButton();
@@ -61,16 +73,15 @@ namespace VisualStudioExtension
             progressContainer.Visibility = Visibility.Visible;
 
             //await System.Threading.Tasks.Task.Delay(1000);
-            //vm.Commands.Add(new GraphNode { Name = "keelekekekekkekekekekekekkekekekkekekekkekekekkekekekekkekekk" });
 
             await Orchestrator.Analyzer.StartAsync(_progressUpdater);
             var graph = Orchestrator.Analyzer.GetCommandsEventsGraph();
 
             if (graph.Commands != null)
             {
-                foreach (var item in graph.Commands.OrderBy(x => x.Name))
+                foreach (var item in graph.Commands.OrderBy(x => x.Text))
                 {
-                    vm.Commands.Add(item);
+                    Commands.Add(item);
                 }
             }
 
@@ -79,17 +90,84 @@ namespace VisualStudioExtension
 
             EnableAnalyzeButton();
         }
-    }
 
-    public class VM
-    {
-        public ObservableCollection<GraphNode> Commands { get; set; }
-        public string Text { get; set; }
-
-        public VM()
+        private void clearSearchBtn_Click(object sender, RoutedEventArgs e)
         {
-            Commands = new ObservableCollection<GraphNode>();
-            Text = "asdads";
+            SearchString = null;
+        }
+
+        private void OnSearchStringChanged()
+        {
+            if (string.IsNullOrEmpty(SearchString))
+            {
+                foreach (GraphNode node in treeView.Items)
+                {
+                    ((TreeViewItem)treeView.ItemContainerGenerator.ContainerFromItem(node)).Visibility = Visibility.Visible;
+                }
+            }
+            else
+            {
+                bool foundAny = false;
+                foreach (GraphNode node in treeView.Items)
+                {
+                    var tvi = (TreeViewItem)treeView.ItemContainerGenerator.ContainerFromItem(node);
+
+                    if (node.Text.Contains(SearchString))
+                    {
+                        tvi.Visibility = Visibility.Visible;
+                        foundAny = true;
+                    }
+                    else
+                    {
+                        if (SearchInChildren(node))
+                        {
+                            tvi.Visibility = Visibility.Visible;
+                            foundAny = true;
+                        }
+                        else
+                        {
+                            tvi.Visibility = Visibility.Collapsed;
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool SearchInChildren(GraphNode node, int maxDepth = 1, int currentDepth = 1)
+        {
+            foreach (var childNode in node.Children)
+            {
+                if (childNode.Text.Contains(SearchString)
+                    || (currentDepth != maxDepth && SearchInChildren(childNode, maxDepth, currentDepth + 1)))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        private GraphNode GetTestData(string t)
+        {
+            var node = new GraphNode() { Text = t };
+
+            for (int i = 0; i < 10; i++)
+            {
+                var node2 = new GraphNode() { Text = i.ToString() };
+                node.AddChild(node2);
+
+                for (int k = 0; k < 10; k++)
+                {
+                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() });
+                }
+            }
+
+            return node;
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
     }
 }

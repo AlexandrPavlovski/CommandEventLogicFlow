@@ -64,7 +64,7 @@ namespace VisualStudioExtension
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
 
-            cfg.SolutionPath = @"c:/Projects/TheraNest/repositories/zertistherapy/source/Theranest.sln";
+            cfg.SolutionPath = @"c:/lol/kek";
             cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
             cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
             cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;

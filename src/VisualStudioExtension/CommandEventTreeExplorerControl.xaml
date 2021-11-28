@@ -12,15 +12,14 @@
     <!--DataContext="{Binding RelativeSource={RelativeSource Self}}"-->
              
     <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center">Command Event Tree Explorer</TextBlock>
-        <TextBlock DockPanel.Dock="Top" Margin="10" HorizontalAlignment="Center" Text="{Binding Text}"/>
-
         <Button x:Name="analyzeBtn" DockPanel.Dock="Top" Content="Analyze" Click="analyzeBtn_Click"/>
+        <Button x:Name="clearSearchBtn" DockPanel.Dock="Top" Content="Clear search" Click="clearSearchBtn_Click"/>
+        <TextBox x:Name="searchTextBox" DockPanel.Dock="Top"  Text="{Binding SearchString, Delay=300, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
         <TreeView x:Name="treeView" DockPanel.Dock="Top" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Text="{Binding Text}" />
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>

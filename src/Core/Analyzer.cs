@@ -143,14 +143,14 @@ namespace Core
             }
             commandsAlreadyAddedToTree.Add(commandSymbol.Name);
 
-            commandNode.Name = commandSymbol.Name;
+            commandNode.Text = commandSymbol.Name;
 
             foreach (var cmdHnldr in _commandHandlers[commandSymbol])
             {
                 var eventSymbols = _allInstantiatedTypesCache[cmdHnldr.MethodSymbol];
                 foreach (var eventSymbol in eventSymbols)
                 {
-                    var eventNode = new GraphNode { Name = eventSymbol.Name };
+                    var eventNode = new GraphNode { Text = eventSymbol.Name };
                     commandNode.AddChild(eventNode);
 
                     if (_eventHandlers.TryGetValue(eventSymbol, out var eventHandlers))
@@ -160,7 +160,7 @@ namespace Core
                             var commandSymbols = _allInstantiatedTypesCache[evtHndlr.MethodSymbol];
                             foreach (var cmdSmbl in commandSymbols)
                             {
-                                var cmdNode = new GraphNode { Name = cmdSmbl.Name };
+                                var cmdNode = new GraphNode { Text = cmdSmbl.Name };
                                 eventNode.AddChild(cmdNode);
                                 BuildTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
                             }
