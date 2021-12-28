@@ -4,22 +4,40 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
+             xmlns:cnvr="clr-namespace:VisualStudioExtension.Converters"
              Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="600"
              Name="MyToolWindow">
     <!--DataContext="{Binding RelativeSource={RelativeSource Self}}"-->
-             
+
+    <UserControl.Resources>
+        <cnvr:HandlerInfoToHandlerClassNameConverter x:Key="HandlerInfoToHandlerClassNameConverter" />
+    </UserControl.Resources>
+
     <DockPanel>
-        <Button x:Name="analyzeBtn" DockPanel.Dock="Top" Content="Analyze" Click="analyzeBtn_Click"/>
-        <Button x:Name="clearSearchBtn" DockPanel.Dock="Top" Content="Clear search" Click="clearSearchBtn_Click"/>
+        <Button x:Name="analyzeBtn" DockPanel.Dock="Top" Content="Analyze" Click="AnalyzeBtn_Click"/>
+        <Button x:Name="clearSearchBtn" DockPanel.Dock="Top" Content="Clear search" Click="ClearSearchBtn_Click"/>
         <TextBox x:Name="searchTextBox" DockPanel.Dock="Top"  Text="{Binding SearchString, Delay=300, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
         <TreeView x:Name="treeView" DockPanel.Dock="Top" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Text}" />
+                    <StackPanel Orientation="Horizontal" PreviewMouseRightButtonDown="StackPanel_PreviewMouseRightButtonDown">
+                        <StackPanel.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding Handlers}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding Converter={StaticResource HandlerInfoToHandlerClassNameConverter}}" />
+                                        <Setter Property="Tag" Value="{Binding}" />
+                                        <EventSetter Event="Click" Handler="MenuItem_Click" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{Binding Text}" />
+                    </StackPanel>
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>

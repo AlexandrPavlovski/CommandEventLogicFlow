@@ -144,23 +144,35 @@ namespace Core
             commandsAlreadyAddedToTree.Add(commandSymbol.Name);
 
             commandNode.Text = commandSymbol.Name;
+            commandNode.Type = GraphNodeType.Command;
+            commandNode.Handlers = _commandHandlers[commandSymbol];
 
-            foreach (var cmdHnldr in _commandHandlers[commandSymbol])
+            foreach (var cmdHnldr in commandNode.Handlers)
             {
                 var eventSymbols = _allInstantiatedTypesCache[cmdHnldr.MethodSymbol];
                 foreach (var eventSymbol in eventSymbols)
                 {
-                    var eventNode = new GraphNode { Text = eventSymbol.Name };
+                    var eventNode = new GraphNode
+                    {
+                        Text = eventSymbol.Name,
+                        Type = GraphNodeType.Event
+                    };
                     commandNode.AddChild(eventNode);
 
                     if (_eventHandlers.TryGetValue(eventSymbol, out var eventHandlers))
                     {
+                        eventNode.Handlers = eventHandlers;
                         foreach (var evtHndlr in eventHandlers)
                         {
                             var commandSymbols = _allInstantiatedTypesCache[evtHndlr.MethodSymbol];
                             foreach (var cmdSmbl in commandSymbols)
                             {
-                                var cmdNode = new GraphNode { Text = cmdSmbl.Name };
+                                var cmdNode = new GraphNode
+                                {
+                                    Text = cmdSmbl.Name,
+                                    Type = GraphNodeType.Command,
+                                    Handlers = _commandHandlers[cmdSmbl]
+                                };
                                 eventNode.AddChild(cmdNode);
                                 BuildTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
                             }

@@ -60,11 +60,13 @@ namespace VisualStudioExtension
             //var componentModel = (IComponentModel)GetGlobalService(typeof(SComponentModel));
             //var workspace = componentModel.GetService<VisualStudioWorkspace>();
             //var solution = workspace.CurrentSolution;
+            //var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
+
 
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
 
-            cfg.SolutionPath = @"c:/lol/kek";
+            cfg.SolutionPath = @"c:/Projects/TheraNest/repositories/zertistherapy/source/Theranest.sln";
             cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
             cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
             cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;
@@ -86,16 +88,16 @@ namespace VisualStudioExtension
 
             var analyzer = new Analyzer(cfg);
             Orchestrator.Analyzer = analyzer;
-            
+
             await CommandEventTreeExplorerCommand.InitializeAsync(this);
 
-            //SolutionEvents.OnAfterOpenSolution += orchestrator.HandleAfterOpenSolution;
-            //SolutionEvents.OnBeforeCloseSolution += orchestrator.HandleBeforeCloseSolution;
+            //SolutionEvents.OnAfterOpenSolution += Orchestrator.HandleAfterOpenSolution;
+            //SolutionEvents.OnBeforeCloseSolution += Orchestrator.HandleBeforeCloseSolution;
 
             //bool isSolutionLoaded = await IsSolutionLoadedAsync();
             //if (isSolutionLoaded)
             //{
-            //    orchestrator.HandleAfterOpenSolution();
+            //    Orchestrator.HandleAfterOpenSolution();
             //}
         }
 

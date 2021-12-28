@@ -11,12 +11,19 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Windows.Media;
+using EnvDTE;
+using Microsoft.VisualStudio;
 
 namespace VisualStudioExtension
 {
     public partial class CommandEventTreeExplorerControl : UserControl, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
 
 
         public ObservableCollection<GraphNode> Commands { get; set; }
@@ -35,6 +42,7 @@ namespace VisualStudioExtension
 
         private IProgress<AnalysisProgress> _progressUpdater;
 
+
         public CommandEventTreeExplorerControl()
         {
             _progressUpdater = new Progress<AnalysisProgress>(x => { progressText.Text = x.Description; progressBar.Value = x.Percent; });
@@ -46,12 +54,12 @@ namespace VisualStudioExtension
 
             //analyzeBtn.IsEnabled = false;
 
-            Commands.Add(GetTestData("asdasda"));
-            Commands.Add(GetTestData("rerferg"));
-            Commands.Add(GetTestData("dsvxvxc"));
-            Commands.Add(GetTestData("ssssss"));
-            Commands.Add(GetTestData("ytjtyjghn"));
-            Commands.Add(GetTestData("pokpokpokp"));
+            //Commands.Add(GetTestData("asdasda"));
+            //Commands.Add(GetTestData("rerferg"));
+            //Commands.Add(GetTestData("dsvxvxc"));
+            //Commands.Add(GetTestData("ssssss"));
+            //Commands.Add(GetTestData("ytjtyjghn"));
+            //Commands.Add(GetTestData("pokpokpokp"));
         }
 
         public void EnableAnalyzeButton()
@@ -64,7 +72,7 @@ namespace VisualStudioExtension
             analyzeBtn.IsEnabled = false;
         }
 
-        private async void analyzeBtn_Click(object sender, RoutedEventArgs e)
+        private async void AnalyzeBtn_Click(object sender, RoutedEventArgs e)
         {
             DisableAnalyzeButton();
             progressBar.Value = 0;
@@ -91,9 +99,42 @@ namespace VisualStudioExtension
             EnableAnalyzeButton();
         }
 
-        private void clearSearchBtn_Click(object sender, RoutedEventArgs e)
+        private void ClearSearchBtn_Click(object sender, RoutedEventArgs e)
         {
             SearchString = null;
+        }
+
+        private void StackPanel_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var source = e.OriginalSource as DependencyObject;
+            while (source != null && !(source is TreeViewItem))
+            {
+                source = VisualTreeHelper.GetParent(source);
+            }
+            var treeViewItem = source as TreeViewItem;
+
+            if (treeViewItem != null)
+            {
+                treeViewItem.Focus();
+                e.Handled = true;
+            }
+        }
+
+        private async void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var handlerInfo = ((MenuItem)sender).Tag as HandlerInfo;
+            var handlerLocation = handlerInfo.MethodNode.GetLocation();
+            var handlerStartLinePosition = handlerLocation.GetMappedLineSpan().StartLinePosition;
+
+            //await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
+            using (new NewDocumentStateScope(__VSNEWDOCUMENTSTATE.NDS_Provisional, VSConstants.NewDocumentStateReason.SolutionExplorer))
+            {
+                dte.ItemOperations.OpenFile(handlerInfo.MethodNode.SyntaxTree.FilePath);
+            }
+            // +1 is needed here because VS is displaying text with lines/characters starting from 1 not 0
+            (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(handlerStartLinePosition.Line + 1, handlerStartLinePosition.Character + 1);
         }
 
         private void OnSearchStringChanged()
@@ -135,12 +176,15 @@ namespace VisualStudioExtension
 
         private bool SearchInChildren(GraphNode node, int maxDepth = 1, int currentDepth = 1)
         {
-            foreach (var childNode in node.Children)
+            if (node.Children != null)
             {
-                if (childNode.Text.Contains(SearchString)
-                    || (currentDepth != maxDepth && SearchInChildren(childNode, maxDepth, currentDepth + 1)))
+                foreach (var childNode in node.Children)
                 {
-                    return true;
+                    if (childNode.Text.Contains(SearchString)
+                        || (currentDepth != maxDepth && SearchInChildren(childNode, maxDepth, currentDepth + 1)))
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -149,7 +193,7 @@ namespace VisualStudioExtension
 
         private GraphNode GetTestData(string t)
         {
-            var node = new GraphNode() { Text = t };
+            var node = new GraphNode() { Text = t, Handlers2 = new List<string> { "asdasdad", "wrfw23rf234few" } };
 
             for (int i = 0; i < 10; i++)
             {
@@ -165,9 +209,6 @@ namespace VisualStudioExtension
             return node;
         }
 
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
+        
     }
 }
