@@ -60,7 +60,7 @@ namespace TestWpfApp
 
                 for (int k = 0; k < 10; k++)
                 {
-                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() });
+                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() + "ASDASDASDASDASD asdasdAsdasdasd asd asda sd" });
                 }
             }
 

@@ -54,12 +54,12 @@ namespace VisualStudioExtension
 
             //analyzeBtn.IsEnabled = false;
 
-            //Commands.Add(GetTestData("asdasda"));
-            //Commands.Add(GetTestData("rerferg"));
-            //Commands.Add(GetTestData("dsvxvxc"));
-            //Commands.Add(GetTestData("ssssss"));
-            //Commands.Add(GetTestData("ytjtyjghn"));
-            //Commands.Add(GetTestData("pokpokpokp"));
+            Commands.Add(GetTestData("asdasda"));
+            Commands.Add(GetTestData("rerferg"));
+            Commands.Add(GetTestData("dsvxvxc"));
+            Commands.Add(GetTestData("ssssss"));
+            Commands.Add(GetTestData("ytjtyjghn"));
+            Commands.Add(GetTestData("pokpokpokp"));
         }
 
         public void EnableAnalyzeButton()
@@ -74,6 +74,15 @@ namespace VisualStudioExtension
 
         private async void AnalyzeBtn_Click(object sender, RoutedEventArgs e)
         {
+            // == test code ==
+            DisableAnalyzeButton();
+            await System.Threading.Tasks.Task.Delay(1000);
+            EnableAnalyzeButton();
+            searchTextBox.IsEnabled = !searchTextBox.IsEnabled;
+            clearSearchBtn.IsEnabled = searchTextBox.IsEnabled;
+            return;
+            // == test code ==
+
             DisableAnalyzeButton();
             progressBar.Value = 0;
 
@@ -153,7 +162,7 @@ namespace VisualStudioExtension
                 {
                     var tvi = (TreeViewItem)treeView.ItemContainerGenerator.ContainerFromItem(node);
 
-                    if (node.Text.Contains(SearchString))
+                    if (node.Text.IndexOf(SearchString, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         tvi.Visibility = Visibility.Visible;
                         foundAny = true;
@@ -197,12 +206,12 @@ namespace VisualStudioExtension
 
             for (int i = 0; i < 10; i++)
             {
-                var node2 = new GraphNode() { Text = i.ToString() };
+                var node2 = new GraphNode() { Text = i.ToString() + " asdasdasdijoijoij ojijo joi jio asd" };
                 node.AddChild(node2);
 
                 for (int k = 0; k < 10; k++)
                 {
-                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() });
+                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() + " 13312123123 123 123 123  joi jio asd" });
                 }
             }
 

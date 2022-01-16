@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vspui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
              xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
              xmlns:cnvr="clr-namespace:VisualStudioExtension.Converters"
              Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
@@ -16,30 +17,224 @@
         <cnvr:HandlerInfoToHandlerClassNameConverter x:Key="HandlerInfoToHandlerClassNameConverter" />
     </UserControl.Resources>
 
-    <DockPanel>
-        <Button x:Name="analyzeBtn" DockPanel.Dock="Top" Content="Analyze" Click="AnalyzeBtn_Click"/>
-        <Button x:Name="clearSearchBtn" DockPanel.Dock="Top" Content="Clear search" Click="ClearSearchBtn_Click"/>
-        <TextBox x:Name="searchTextBox" DockPanel.Dock="Top"  Text="{Binding SearchString, Delay=300, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Height="28">
+            <Button x:Name="analyzeBtn" ToolTip="Analyze solution" Click="AnalyzeBtn_Click" Width="22" Height="22" Margin="5,0,0,0">
+                <Button.Template>
+                    <ControlTemplate>
+                        <Grid x:Name="Grid" Background="Transparent">
+                            <Path x:Name="Path" Fill="#FF368632" Stretch="Fill" Data="M20 54 L52 32 L20 10 Z" Margin="8,4,6,4"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="UIElement.IsMouseOver" Value="True">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarMouseOverBackgroundGradientKey}}" />
+                            </Trigger>
+                            <Trigger Property="ButtonBase.IsPressed" Value="True">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarMouseDownBackgroundGradientKey}}" />
+                            </Trigger>
+                            <Trigger Property="UIElement.IsEnabled" Value="False">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="Transparent" />
+                                <Setter Property="Shape.Fill" TargetName="Path" Value="#FF4E4E50" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+        
+        <Grid Grid.Row="1" Height="21">
+            <TextBox x:Name="searchTextBox" Text="{Binding SearchString, Delay=300, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
+                     SelectionBrush="{DynamicResource {x:Static vspui:SearchControlColors.SelectionBrushKey}}"
+                     BorderBrush="{DynamicResource {x:Static vspui:SearchControlColors.UnfocusedBorderBrushKey}}"
+                     Background="{DynamicResource {x:Static vspui:SearchControlColors.UnfocusedBrushKey}}"
+                     Foreground="{DynamicResource {x:Static vspui:CommonControlsColors.ComboBoxTextFocusedBrushKey}}">
+                <TextBox.Style>
+                    <Style TargetType="{x:Type TextBox}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=searchTextBox}" Value="True">
+                                <Setter Property="Control.BorderBrush" Value="{DynamicResource {x:Static vspui:SearchControlColors.MouseOverBorderBrushKey}}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+            <TextBlock IsHitTestVisible="False" Text="Search commands and events" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="5,0,0,0"
+                       Foreground="{DynamicResource {x:Static vspui:SearchControlColors.UnfocusedWatermarkTextBrushKey}}">
+                <TextBlock.Style>
+                    <Style TargetType="{x:Type TextBlock}">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Text, ElementName=searchTextBox}" Value="">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Button x:Name="clearSearchBtn" Click="ClearSearchBtn_Click" Width="19" Height="19" HorizontalAlignment="Right" Margin="0,0,1,0" ToolTip="Clear search">
+                <Button.Template>
+                    <ControlTemplate>
+                        <Grid x:Name="Grid" Background="Transparent">
+                            <Path x:Name="Path" Fill="{DynamicResource {x:Static vspui:SearchControlColors.ClearGlyphBrushKey}}" 
+                                  Stretch="Fill" Data="F1M0,1L1,0 4,3 7,0 8,1 5,4 8,7 7,8 4,5 1,8 0,7 3,4 0,1z" Margin="5"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="UIElement.IsMouseOver" Value="True">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vspui:SearchControlColors.ActionButtonMouseOverBrushKey}}" />
+                                <Setter Property="Shape.Fill" TargetName="Path" Value="{DynamicResource {x:Static vspui:SearchControlColors.ActionButtonMouseOverGlyphBrushKey}}" />
+                            </Trigger>
+                            <Trigger Property="ButtonBase.IsPressed" Value="True">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vspui:SearchControlColors.ActionButtonMouseDownBrushKey}}" />
+                                <Setter Property="Shape.Fill" TargetName="Path" Value="{DynamicResource {x:Static vspui:SearchControlColors.ActionButtonMouseDownGlyphBrushKey}}" />
+                            </Trigger>
+                            <Trigger Property="UIElement.IsEnabled" Value="False">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="Transparent" />
+                                <Setter Property="Shape.Fill" TargetName="Path" Value="#FF4E4E50" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </Grid>
 
-        <TreeView x:Name="treeView" DockPanel.Dock="Top" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0">
+        <TreeView x:Name="treeView" Grid.Row="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0"
+                  Background="Transparent">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <StackPanel Orientation="Horizontal" PreviewMouseRightButtonDown="StackPanel_PreviewMouseRightButtonDown">
-                        <StackPanel.ContextMenu>
-                            <ContextMenu ItemsSource="{Binding Handlers}">
-                                <ContextMenu.ItemContainerStyle>
-                                    <Style TargetType="MenuItem">
-                                        <Setter Property="Header" Value="{Binding Converter={StaticResource HandlerInfoToHandlerClassNameConverter}}" />
-                                        <Setter Property="Tag" Value="{Binding}" />
-                                        <EventSetter Event="Click" Handler="MenuItem_Click" />
-                                    </Style>
-                                </ContextMenu.ItemContainerStyle>
-                            </ContextMenu>
-                        </StackPanel.ContextMenu>
-                        <TextBlock Text="{Binding Text}" />
-                    </StackPanel>
+                    <TextBlock Text="{Binding Text}" Foreground="{DynamicResource {x:Static vspui:CommonControlsColors.ComboBoxTextFocusedBrushKey}}" VerticalAlignment="Center"/>
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TreeViewItem">
+                                <StackPanel PreviewMouseRightButtonDown="StackPanel_PreviewMouseRightButtonDown">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu ItemsSource="{Binding Handlers2}">
+                                            <ContextMenu.ItemContainerStyle>
+                                                <Style TargetType="MenuItem">
+                                                    <Setter Property="Header" Value="{Binding}" />
+                                                    <Setter Property="Tag" Value="{Binding}" />
+                                                    <EventSetter Event="Click" Handler="MenuItem_Click" />
+                                                </Style>
+                                            </ContextMenu.ItemContainerStyle>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" MinWidth="19" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition />
+                                        </Grid.RowDefinitions>
+                                        <!--
+                                         Note that the following do not work, but I believe the top 2 should?!
+                                         <ToggleButton IsChecked="{TemplateBinding IsExpanded}" ClickMode="Press" Name="Expander">
+                                         <ToggleButton IsChecked="{TemplateBinding Property=IsExpanded}" ClickMode="Press" Name="Expander">
+                                         <ToggleButton IsChecked="{TemplateBinding Path=IsExpanded}" ClickMode="Press" Name="Expander">
+                                    -->
+                                        <Border x:Name="Bd"
+                                                HorizontalAlignment="Stretch"
+                                                BorderThickness="{TemplateBinding Border.BorderThickness}"
+                                                BorderBrush="{TemplateBinding Border.BorderBrush}"
+                                                Padding="{TemplateBinding Control.Padding}"
+                                                Background="{TemplateBinding Panel.Background}"
+                                                SnapsToDevicePixels="True"
+                                                Grid.Column="0"
+                                                Grid.ColumnSpan="2"
+                                                Margin="-2000,0,0,0">
+                                            <ContentPresenter x:Name="PART_Header"
+                                                              Margin="2020,0,0,0"
+                                                              Content="{TemplateBinding HeaderedContentControl.Header}"
+                                                              ContentTemplate="{TemplateBinding HeaderedContentControl.HeaderTemplate}"
+                                                              ContentStringFormat="{TemplateBinding HeaderedItemsControl.HeaderStringFormat}"
+                                                              ContentTemplateSelector="{TemplateBinding HeaderedItemsControl.HeaderTemplateSelector}"
+                                                              ContentSource="Header"
+                                                              HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}"
+                                                              SnapsToDevicePixels="{TemplateBinding UIElement.SnapsToDevicePixels}"/>
+                                        </Border>
+
+                                        <ToggleButton IsChecked="{Binding Path=IsExpanded, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press" Name="Expander" >
+                                            <ToggleButton.Style>
+                                                <Style TargetType="ToggleButton">
+                                                    <Setter Property="UIElement.Focusable" Value="false" />
+                                                    <Setter Property="FrameworkElement.Width" Value="19" />
+                                                    <Setter Property="FrameworkElement.Height" Value="19" />
+                                                    <Setter Property="Control.Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ToggleButton">
+                                                                <Border Background="Transparent">
+                                                                    <Path Fill="Transparent"
+                                                                          Stroke="Black"
+                                                                          Margin="6,5,0,0"
+                                                                          SnapsToDevicePixels="True"
+                                                                          Name="ExpandPath" Data="M0.5,0.5 L0.5,8.5 L4.5,4.5 Z" />
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="UIElement.IsMouseOver" Value="True">
+                                                                        <Setter TargetName="ExpandPath" Property="Shape.Stroke" Value="Blue" />
+                                                                    </Trigger>
+                                                                    <Trigger Property="ToggleButton.IsChecked" Value="True">
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Margin" Value="6,6,0,0" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="Black" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Black" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Data" Value="M6.5,6.5 L1,6.5 L6.5,1 Z" />
+                                                                    </Trigger>
+                                                                    <MultiTrigger>
+                                                                        <MultiTrigger.Conditions>
+                                                                            <Condition Property="UIElement.IsMouseOver" Value="True" />
+                                                                            <Condition Property="ToggleButton.IsChecked" Value="True" />
+                                                                        </MultiTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="Blue" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Blue" />
+                                                                    </MultiTrigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </ToggleButton.Style>
+                                        </ToggleButton>
+                                        <ItemsPresenter x:Name="ItemsHost" Grid.Column="1" Grid.Row="1" />
+                                    </Grid>
+                                </StackPanel>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="TreeViewItem.IsExpanded" Value="False">
+                                        <Setter TargetName="ItemsHost" Property="UIElement.Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                    <Trigger Property="ItemsControl.HasItems" Value="False">
+                                        <Setter TargetName="Expander" Property="UIElement.Visibility" Value="Hidden" />
+                                    </Trigger>
+                                    <Trigger Property="TreeViewItem.IsSelected" Value="True">
+                                        <Setter TargetName="Bd" Property="Panel.Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                                    </Trigger>
+                                    <MultiTrigger>
+                                        <MultiTrigger.Conditions>
+                                            <Condition Property="TreeViewItem.IsSelected" Value="True" />
+                                            <Condition Property="Selector.IsSelectionActive" Value="False" />
+                                        </MultiTrigger.Conditions>
+                                        <Setter TargetName="Bd" Property="Panel.Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" />
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                                    </MultiTrigger>
+                                    <Trigger Property="UIElement.IsEnabled" Value="False">
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TreeView.ItemContainerStyle>
         </TreeView>
 
         <StackPanel x:Name="progressContainer" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Stretch" Visibility="Collapsed" >
@@ -48,5 +243,5 @@
                 <ProgressBar x:Name="progressBar" Minimum="0" Maximum="100" Width="150" Height="10"/>
             </StackPanel>
         </StackPanel>
-    </DockPanel>
+    </Grid>
 </UserControl>
