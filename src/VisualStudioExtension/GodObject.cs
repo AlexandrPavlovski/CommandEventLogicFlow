@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace VisualStudioExtension
 {
-    static class Orchestrator
+    static class GodObject
     {
         public static Analyzer Analyzer { get; set; }
 
@@ -22,13 +22,15 @@ namespace VisualStudioExtension
             {
                 _treeControl = value;
 
-                //if (_treeControl != null)
-                //{
-                //    if (IsSolutionOpen)
-                //        _treeControl.EnableAnalyzeButton();
-                //    else
-                //        _treeControl.DisableAnalyzeButton();
-                //}
+#if !TESTING
+                if (_treeControl != null)
+                {
+                    if (IsSolutionOpen)
+                        _treeControl.EnableAnalyzeButton();
+                    else
+                        _treeControl.DisableAnalyzeButton();
+                }
+#endif
             }
         }
 
@@ -55,6 +57,8 @@ namespace VisualStudioExtension
             if (TreeControl != null)
             {
                 TreeControl.DisableAnalyzeButton();
+                TreeControl.DisableSearchBox();
+                TreeControl.ClearTree();
             }
         }
     }

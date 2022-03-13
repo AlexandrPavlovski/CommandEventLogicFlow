@@ -147,6 +147,11 @@ namespace Core
             commandNode.Type = GraphNodeType.Command;
             commandNode.Handlers = _commandHandlers[commandSymbol];
 
+            if (_commandInstantiations.TryGetValue(commandSymbol, out var cInst))
+            {
+                commandNode.Instantiations = cInst;
+            }
+
             foreach (var cmdHnldr in commandNode.Handlers)
             {
                 var eventSymbols = _allInstantiatedTypesCache[cmdHnldr.MethodSymbol];
@@ -157,6 +162,11 @@ namespace Core
                         Text = eventSymbol.Name,
                         Type = GraphNodeType.Event
                     };
+
+                    if (_eventInstantiations.TryGetValue(eventSymbol, out var eInst))
+                    {
+                        eventNode.Instantiations = eInst;
+                    }
                     commandNode.AddChild(eventNode);
 
                     if (_eventHandlers.TryGetValue(eventSymbol, out var eventHandlers))
@@ -171,9 +181,10 @@ namespace Core
                                 {
                                     Text = cmdSmbl.Name,
                                     Type = GraphNodeType.Command,
-                                    Handlers = _commandHandlers[cmdSmbl]
+                                    Handlers = _commandHandlers[cmdSmbl],
+                                    Instantiations = _commandInstantiations[cmdSmbl]
                                 };
-                                eventNode.AddChild(cmdNode);
+                            eventNode.AddChild(cmdNode);
                                 BuildTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
                             }
                         }
@@ -451,10 +462,11 @@ namespace Core
             var semanticModel = await GetSemanticModelAsync(refLoc.Location.SourceTree);
             var methodDeclarationNode = GetMethodDeclarationThatContainsNode(instantiationNode);
 
-            // method declaration will be null here if event object is created outside of any method
+            // method declaration will be null here if event object is created outside of method, obviously
             if (methodDeclarationNode != null)
             {
                 var methodDeclarationSymbol = (IMethodSymbol)semanticModel.GetDeclaredSymbol(methodDeclarationNode);
+                instInfo.ContainingMethodSymbol = methodDeclarationSymbol;
 
                 if (store2.TryGetValue(methodDeclarationSymbol, out var typeSymbols))
                 {

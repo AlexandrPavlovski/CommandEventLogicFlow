@@ -5,17 +5,27 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 using System.Windows.Data;
 
 namespace VisualStudioExtension.Converters
 {
-    [ValueConversion(typeof(HandlerInfo), typeof(string))]
-    class HandlerInfoToHandlerClassNameConverter : IValueConverter
+    class InstantiationToMenuItemConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var handlerInfo = (HandlerInfo)value;
-            return handlerInfo.MethodSymbol.ContainingType.Name;
+            switch (value)
+            {
+                case HandlerInfo _:
+                    return null;
+
+                case InstantiationInfo instantiationInfo:
+
+                    return instantiationInfo.ToString();
+
+                default:
+                    return null;
+            }
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

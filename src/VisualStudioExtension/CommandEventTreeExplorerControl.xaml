@@ -6,15 +6,17 @@
              xmlns:vspui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
              xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
              xmlns:cnvr="clr-namespace:VisualStudioExtension.Converters"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="600"
              Name="MyToolWindow">
-    <!--DataContext="{Binding RelativeSource={RelativeSource Self}}"-->
 
     <UserControl.Resources>
-        <cnvr:HandlerInfoToHandlerClassNameConverter x:Key="HandlerInfoToHandlerClassNameConverter" />
+        <cnvr:CommandEventToIconConverter x:Key="CommandEventToIconConverter" />
+        <cnvr:InfoToNameConverter x:Key="InfoToNameConverter" />
+        <cnvr:InstantiationToMenuItemConverter x:Key="InstantiationToMenuItemConverter" />
     </UserControl.Resources>
 
     <Grid>
@@ -23,17 +25,20 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Height="28">
-            <Button x:Name="analyzeBtn" ToolTip="Analyze solution" Click="AnalyzeBtn_Click" Width="22" Height="22" Margin="5,0,0,0">
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Height="28" Background="{DynamicResource {x:Static vspui:EnvironmentColors.CommandBarOptionsBackgroundBrushKey}}">
+            <Button x:Name="analyzeBtn" ToolTip="Analyze solution" Click="AnalyzeBtn_Click" Width="22" Height="22" Margin="5,0,0,0" >
                 <Button.Template>
                     <ControlTemplate>
                         <Grid x:Name="Grid" Background="Transparent">
-                            <Path x:Name="Path" Fill="#FF368632" Stretch="Fill" Data="M20 54 L52 32 L20 10 Z" Margin="8,4,6,4"/>
+                            <Border x:Name="bor" BorderThickness="1">
+                                <Path x:Name="Path" Fill="#FF368632" Stretch="Fill" Data="M20 54 L52 32 L20 10 Z" Margin="7,4,6,4"/>
+                            </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="UIElement.IsMouseOver" Value="True">
                                 <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarMouseOverBackgroundGradientKey}}" />
+                                <Setter Property="Border.BorderBrush" TargetName="bor" Value="{DynamicResource {x:Static vspui:EnvironmentColors.ToolWindowTabBorderBrushKey}}" />
                             </Trigger>
                             <Trigger Property="ButtonBase.IsPressed" Value="True">
                                 <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarMouseDownBackgroundGradientKey}}" />
@@ -48,7 +53,7 @@
             </Button>
         </StackPanel>
         
-        <Grid Grid.Row="1" Height="21">
+        <Grid Grid.Row="1" Height="21" x:Name="searchBoxContainer" Visibility="Collapsed">
             <TextBox x:Name="searchTextBox" Text="{Binding SearchString, Delay=300, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
                      SelectionBrush="{DynamicResource {x:Static vspui:SearchControlColors.SelectionBrushKey}}"
                      BorderBrush="{DynamicResource {x:Static vspui:SearchControlColors.UnfocusedBorderBrushKey}}"
@@ -107,7 +112,11 @@
                   Background="Transparent">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Text}" Foreground="{DynamicResource {x:Static vspui:CommonControlsColors.ComboBoxTextFocusedBrushKey}}" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal">
+                        
+                        <Image Source="{Binding Path=Type, Converter={StaticResource CommandEventToIconConverter}}" Margin="0,0,4,0" ToolTip="{Binding Type}" />
+                        <TextBlock Text="{Binding Text}" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
             <TreeView.ItemContainerStyle>
@@ -115,16 +124,29 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="TreeViewItem">
-                                <StackPanel PreviewMouseRightButtonDown="StackPanel_PreviewMouseRightButtonDown">
+                                <StackPanel x:Name="sp" PreviewMouseRightButtonDown="StackPanel_PreviewMouseRightButtonDown">
                                     <StackPanel.ContextMenu>
-                                        <ContextMenu ItemsSource="{Binding Handlers2}">
+                                        <ContextMenu>
+                                            <ContextMenu.Resources>
+                                                <CollectionContainer x:Key="handlers" Collection="{Binding DataContext.Handlers, Source={x:Reference sp}}" />
+                                                <CollectionContainer x:Key="instantiations" Collection="{Binding DataContext.Instantiations, Source={x:Reference sp}}" />
+                                            </ContextMenu.Resources>
                                             <ContextMenu.ItemContainerStyle>
-                                                <Style TargetType="MenuItem">
-                                                    <Setter Property="Header" Value="{Binding}" />
-                                                    <Setter Property="Tag" Value="{Binding}" />
-                                                    <EventSetter Event="Click" Handler="MenuItem_Click" />
+                                                <Style>
+                                                    <Setter Property="MenuItem.Header" Value="{Binding Text}" />
+                                                    <Setter Property="MenuItem.Tag" Value="{Binding CodeLocation}" />
+                                                    <Setter Property="MenuItem.ItemsSource" Value="{Binding Methods}" />
+                                                    <EventSetter Event="MenuItem.Click" Handler="MenuItem_Click" />
                                                 </Style>
                                             </ContextMenu.ItemContainerStyle>
+                                            <ContextMenu.ItemsSource>
+                                                <CompositeCollection>
+                                                    <!--<MenuItem Header="LOL" Tag="KEK" />-->
+                                                    <StaticResource ResourceKey="handlers" />
+                                                    <Separator />
+                                                    <StaticResource ResourceKey="instantiations" />
+                                                </CompositeCollection>
+                                            </ContextMenu.ItemsSource>
                                         </ContextMenu>
                                     </StackPanel.ContextMenu>
                                     <Grid>
@@ -136,13 +158,8 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition />
                                         </Grid.RowDefinitions>
-                                        <!--
-                                         Note that the following do not work, but I believe the top 2 should?!
-                                         <ToggleButton IsChecked="{TemplateBinding IsExpanded}" ClickMode="Press" Name="Expander">
-                                         <ToggleButton IsChecked="{TemplateBinding Property=IsExpanded}" ClickMode="Press" Name="Expander">
-                                         <ToggleButton IsChecked="{TemplateBinding Path=IsExpanded}" ClickMode="Press" Name="Expander">
-                                    -->
-                                        <Border x:Name="Bd"
+
+                                        <Border x:Name="ItemBackground"
                                                 HorizontalAlignment="Stretch"
                                                 BorderThickness="{TemplateBinding Border.BorderThickness}"
                                                 BorderBrush="{TemplateBinding Border.BorderBrush}"
@@ -174,29 +191,94 @@
                                                             <ControlTemplate TargetType="ToggleButton">
                                                                 <Border Background="Transparent">
                                                                     <Path Fill="Transparent"
-                                                                          Stroke="Black"
+                                                                          Stroke="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}"
                                                                           Margin="6,5,0,0"
                                                                           SnapsToDevicePixels="True"
                                                                           Name="ExpandPath" Data="M0.5,0.5 L0.5,8.5 L4.5,4.5 Z" />
                                                                 </Border>
                                                                 <ControlTemplate.Triggers>
-                                                                    <Trigger Property="UIElement.IsMouseOver" Value="True">
-                                                                        <Setter TargetName="ExpandPath" Property="Shape.Stroke" Value="Blue" />
-                                                                    </Trigger>
                                                                     <Trigger Property="ToggleButton.IsChecked" Value="True">
                                                                         <Setter TargetName="ExpandPath" Property="Path.Margin" Value="6,6,0,0" />
-                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="Black" />
-                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Black" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}" />
                                                                         <Setter TargetName="ExpandPath" Property="Path.Data" Value="M6.5,6.5 L1,6.5 L6.5,1 Z" />
                                                                     </Trigger>
-                                                                    <MultiTrigger>
-                                                                        <MultiTrigger.Conditions>
-                                                                            <Condition Property="UIElement.IsMouseOver" Value="True" />
-                                                                            <Condition Property="ToggleButton.IsChecked" Value="True" />
-                                                                        </MultiTrigger.Conditions>
-                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="Blue" />
-                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Blue" />
-                                                                    </MultiTrigger>
+                                                                    <!--I was forced to create so many triggers. WPF, why have you betrayed me? I loved you so much-->
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Transparent" />
+                                                                    </MultiDataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                    </MultiDataTrigger>
+                                                                    
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                    </MultiDataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Transparent" />
+                                                                    </MultiDataTrigger>
+
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}" />
+                                                                    </MultiDataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.GlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Transparent" />
+                                                                    </MultiDataTrigger>
+
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsFocused, RelativeSource={RelativeSource TemplatedParent}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemInactiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemInactiveGlyphBrushKey}}" />
+                                                                    </MultiDataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=IsFocused, RelativeSource={RelativeSource TemplatedParent}}" Value="False" />
+                                                                            <Condition Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                                                                            <Condition Binding="{Binding Path=IsChecked, RelativeSource={RelativeSource Self}}" Value="False" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Stroke" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemInactiveGlyphBrushKey}}" />
+                                                                        <Setter TargetName="ExpandPath" Property="Path.Fill" Value="Transparent" />
+                                                                    </MultiDataTrigger>
                                                                 </ControlTemplate.Triggers>
                                                             </ControlTemplate>
                                                         </Setter.Value>
@@ -208,6 +290,9 @@
                                     </Grid>
                                 </StackPanel>
                                 <ControlTemplate.Triggers>
+                                    <Trigger Property="TextBlock.IsEnabled" Value="True">
+                                        <Setter Property="TextBlock.Foreground" Value="{DynamicResource {x:Static vspui:CommonControlsColors.ComboBoxTextFocusedBrushKey}}" />
+                                    </Trigger>
                                     <Trigger Property="TreeViewItem.IsExpanded" Value="False">
                                         <Setter TargetName="ItemsHost" Property="UIElement.Visibility" Value="Collapsed" />
                                     </Trigger>
@@ -215,20 +300,21 @@
                                         <Setter TargetName="Expander" Property="UIElement.Visibility" Value="Hidden" />
                                     </Trigger>
                                     <Trigger Property="TreeViewItem.IsSelected" Value="True">
-                                        <Setter TargetName="Bd" Property="Panel.Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
-                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                                        <Setter TargetName="ItemBackground" Property="Panel.Background" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveBrushKey}}" />
+                                        <Setter TargetName="ItemBackground" Property="TextElement.Foreground" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemActiveTextBrushKey}}" />
                                     </Trigger>
                                     <MultiTrigger>
                                         <MultiTrigger.Conditions>
                                             <Condition Property="TreeViewItem.IsSelected" Value="True" />
                                             <Condition Property="Selector.IsSelectionActive" Value="False" />
                                         </MultiTrigger.Conditions>
-                                        <Setter TargetName="Bd" Property="Panel.Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" />
-                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                                        <Setter TargetName="ItemBackground" Property="Panel.Background" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemInactiveBrushKey}}" />
+                                        <Setter TargetName="ItemBackground" Property="TextElement.Foreground" Value="{DynamicResource {x:Static vspui:TreeViewColors.SelectedItemInactiveTextBrushKey}}" />
                                     </MultiTrigger>
                                     <Trigger Property="UIElement.IsEnabled" Value="False">
                                         <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
                                     </Trigger>
+                                    
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Setter.Value>
@@ -237,9 +323,9 @@
             </TreeView.ItemContainerStyle>
         </TreeView>
 
-        <StackPanel x:Name="progressContainer" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Stretch" Visibility="Collapsed" >
+        <StackPanel x:Name="progressContainer" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Stretch" Visibility="Collapsed" >
             <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
-                <TextBlock x:Name="progressText" Text="LOL" Margin="0 0 0 5" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="progressText" Margin="0 0 0 5" HorizontalAlignment="Center"/>
                 <ProgressBar x:Name="progressBar" Minimum="0" Maximum="100" Width="150" Height="10"/>
             </StackPanel>
         </StackPanel>

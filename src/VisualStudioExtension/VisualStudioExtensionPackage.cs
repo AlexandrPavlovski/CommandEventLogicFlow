@@ -66,7 +66,6 @@ namespace VisualStudioExtension
             OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
             var cfg = new Config();
 
-            cfg.SolutionPath = @"c:/Projects/TheraNest/repositories/zertistherapy/source/Theranest.sln";
             cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
             cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
             cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;
@@ -81,24 +80,23 @@ namespace VisualStudioExtension
 
             var solution = (IVsSolution)GetGlobalService(typeof(IVsSolution));
             solution.GetSolutionInfo(out _, out string solutionFilePath, out _);
-            if (string.IsNullOrEmpty(solutionFilePath) == false)
-            {
-                cfg.SolutionPath = solutionFilePath;
-            }
+            cfg.SolutionPath = solutionFilePath;
 
             var analyzer = new Analyzer(cfg);
-            Orchestrator.Analyzer = analyzer;
+            GodObject.Analyzer = analyzer;
 
             await CommandEventTreeExplorerCommand.InitializeAsync(this);
 
-            //SolutionEvents.OnAfterOpenSolution += Orchestrator.HandleAfterOpenSolution;
-            //SolutionEvents.OnBeforeCloseSolution += Orchestrator.HandleBeforeCloseSolution;
+#if !TESTING
+            SolutionEvents.OnAfterOpenSolution += GodObject.HandleAfterOpenSolution;
+            SolutionEvents.OnBeforeCloseSolution += GodObject.HandleBeforeCloseSolution;
 
-            //bool isSolutionLoaded = await IsSolutionLoadedAsync();
-            //if (isSolutionLoaded)
-            //{
-            //    Orchestrator.HandleAfterOpenSolution();
-            //}
+            bool isSolutionLoaded = await IsSolutionLoadedAsync();
+            if (isSolutionLoaded)
+            {
+                GodObject.HandleAfterOpenSolution();
+            }
+#endif
         }
 
         private async Task<bool> IsSolutionLoadedAsync()

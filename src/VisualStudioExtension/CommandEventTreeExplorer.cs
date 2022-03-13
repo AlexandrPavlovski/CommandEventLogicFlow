@@ -31,7 +31,7 @@ namespace VisualStudioExtension
             // we are not calling Dispose on this object. This is because ToolWindowPane calls Dispose on
             // the object returned by the Content property.
             var treeControl = new CommandEventTreeExplorerControl();
-            Orchestrator.TreeControl = treeControl;
+            GodObject.TreeControl = treeControl;
 
             this.Content = treeControl;
         }

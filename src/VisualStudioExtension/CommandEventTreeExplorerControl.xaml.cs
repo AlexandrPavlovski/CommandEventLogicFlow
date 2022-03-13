@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Windows.Media;
 using EnvDTE;
 using Microsoft.VisualStudio;
+using VisualStudioExtension.ViewModels;
+using VisualStudioExtension.Misc;
 
 namespace VisualStudioExtension
 {
@@ -26,7 +28,7 @@ namespace VisualStudioExtension
         }
 
 
-        public ObservableCollection<GraphNode> Commands { get; set; }
+        public ObservableCollection<GraphNodeVM> Commands { get; set; }
 
         private string _searchString { get; set; }
         public string SearchString 
@@ -47,19 +49,21 @@ namespace VisualStudioExtension
         {
             _progressUpdater = new Progress<AnalysisProgress>(x => { progressText.Text = x.Description; progressBar.Value = x.Percent; });
 
-            Commands = new ObservableCollection<GraphNode>();
+            Commands = new ObservableCollection<GraphNodeVM>();
 
             InitializeComponent();
             DataContext = this;
 
-            //analyzeBtn.IsEnabled = false;
-
+#if TESTING
             Commands.Add(GetTestData("asdasda"));
             Commands.Add(GetTestData("rerferg"));
             Commands.Add(GetTestData("dsvxvxc"));
             Commands.Add(GetTestData("ssssss"));
             Commands.Add(GetTestData("ytjtyjghn"));
             Commands.Add(GetTestData("pokpokpokp"));
+#else
+            analyzeBtn.IsEnabled = false;
+#endif
         }
 
         public void EnableAnalyzeButton()
@@ -72,40 +76,56 @@ namespace VisualStudioExtension
             analyzeBtn.IsEnabled = false;
         }
 
+        public void EnableSearchBox()
+        {
+            searchBoxContainer.Visibility = Visibility.Visible;
+        }
+
+        public void DisableSearchBox()
+        {
+            searchBoxContainer.Visibility = Visibility.Collapsed;
+        }
+
+        public void ClearTree()
+        {
+            Commands.Clear();
+        }
+
         private async void AnalyzeBtn_Click(object sender, RoutedEventArgs e)
         {
-            // == test code ==
+#if TESTING
             DisableAnalyzeButton();
             await System.Threading.Tasks.Task.Delay(1000);
             EnableAnalyzeButton();
             searchTextBox.IsEnabled = !searchTextBox.IsEnabled;
             clearSearchBtn.IsEnabled = searchTextBox.IsEnabled;
             return;
-            // == test code ==
-
+#else
             DisableAnalyzeButton();
             progressBar.Value = 0;
+
+            ClearTree();
 
             treeView.Visibility = Visibility.Collapsed;
             progressContainer.Visibility = Visibility.Visible;
 
-            //await System.Threading.Tasks.Task.Delay(1000);
-
-            await Orchestrator.Analyzer.StartAsync(_progressUpdater);
-            var graph = Orchestrator.Analyzer.GetCommandsEventsGraph();
+            await GodObject.Analyzer.StartAsync(_progressUpdater);
+            var graph = GodObject.Analyzer.GetCommandsEventsGraph();
 
             if (graph.Commands != null)
             {
                 foreach (var item in graph.Commands.OrderBy(x => x.Text))
                 {
-                    Commands.Add(item);
+                    Commands.Add(new GraphNodeVM(item));
                 }
+                EnableSearchBox();
             }
 
             progressContainer.Visibility = Visibility.Collapsed;
             treeView.Visibility = Visibility.Visible;
 
             EnableAnalyzeButton();
+#endif
         }
 
         private void ClearSearchBtn_Click(object sender, RoutedEventArgs e)
@@ -131,26 +151,28 @@ namespace VisualStudioExtension
 
         private async void MenuItem_Click(object sender, RoutedEventArgs e)
         {
-            var handlerInfo = ((MenuItem)sender).Tag as HandlerInfo;
-            var handlerLocation = handlerInfo.MethodNode.GetLocation();
-            var handlerStartLinePosition = handlerLocation.GetMappedLineSpan().StartLinePosition;
+            var codeLocation = ((MenuItem)sender).Tag as CodeLocation;
+            if (codeLocation == null)
+            {
+                return;
+            }
 
-            //await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
             using (new NewDocumentStateScope(__VSNEWDOCUMENTSTATE.NDS_Provisional, VSConstants.NewDocumentStateReason.SolutionExplorer))
             {
-                dte.ItemOperations.OpenFile(handlerInfo.MethodNode.SyntaxTree.FilePath);
+                dte.ItemOperations.OpenFile(codeLocation.FilePath);
             }
             // +1 is needed here because VS is displaying text with lines/characters starting from 1 not 0
-            (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(handlerStartLinePosition.Line + 1, handlerStartLinePosition.Character + 1);
+            (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(codeLocation.Line + 1, codeLocation.Character + 1);
         }
 
         private void OnSearchStringChanged()
         {
             if (string.IsNullOrEmpty(SearchString))
             {
-                foreach (GraphNode node in treeView.Items)
+                foreach (GraphNodeVM node in treeView.Items)
                 {
                     ((TreeViewItem)treeView.ItemContainerGenerator.ContainerFromItem(node)).Visibility = Visibility.Visible;
                 }
@@ -158,7 +180,7 @@ namespace VisualStudioExtension
             else
             {
                 bool foundAny = false;
-                foreach (GraphNode node in treeView.Items)
+                foreach (GraphNodeVM node in treeView.Items)
                 {
                     var tvi = (TreeViewItem)treeView.ItemContainerGenerator.ContainerFromItem(node);
 
@@ -183,7 +205,7 @@ namespace VisualStudioExtension
             }
         }
 
-        private bool SearchInChildren(GraphNode node, int maxDepth = 1, int currentDepth = 1)
+        private bool SearchInChildren(GraphNodeVM node, int maxDepth = 1, int currentDepth = 1)
         {
             if (node.Children != null)
             {
@@ -206,7 +228,7 @@ namespace VisualStudioExtension
 
             for (int i = 0; i < 10; i++)
             {
-                var node2 = new GraphNode() { Text = i.ToString() + " asdasdasdijoijoij ojijo joi jio asd" };
+                var node2 = new GraphNode() { Text = i.ToString() + " asdasdasdijoijoij ojijo joi jio asd", Type = GraphNodeType.Event };
                 node.AddChild(node2);
 
                 for (int k = 0; k < 10; k++)
@@ -218,6 +240,9 @@ namespace VisualStudioExtension
             return node;
         }
 
-        
+        private void MenuItem_Click_1(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

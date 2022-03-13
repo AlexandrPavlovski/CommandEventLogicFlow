@@ -8,15 +8,14 @@ using System.Threading.Tasks;
 
 namespace Core
 {
-    class InstantiationInfo
+    public class InstantiationInfo
     {
         public ReferenceLocation ReferenceLocation;
-        //public IMethodSymbol ContainingMethodSymbol;
+        public IMethodSymbol ContainingMethodSymbol;
 
         public InstantiationInfo(ReferenceLocation referenceLocation)
         {
             ReferenceLocation = referenceLocation;
-            //ContainingMethodSymbol = containingMethodSymbol;
         }
     }
 }
