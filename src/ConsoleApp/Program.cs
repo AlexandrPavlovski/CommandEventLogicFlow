@@ -33,7 +33,11 @@ namespace ConsoleApp
             //MSBuildLocator.RegisterInstance(t);
 
             var analyzer = new Analyzer(cfg);
+
+            var st = System.Diagnostics.Stopwatch.StartNew();
             await analyzer.StartAsync();
+            st.Stop();
+
             var g = analyzer.GetCommandsEventsGraph();
         }
     }

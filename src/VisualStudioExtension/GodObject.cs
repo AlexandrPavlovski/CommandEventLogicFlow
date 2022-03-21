@@ -57,7 +57,7 @@ namespace VisualStudioExtension
             if (TreeControl != null)
             {
                 TreeControl.DisableAnalyzeButton();
-                TreeControl.DisableSearchBox();
+                TreeControl.DisableToolBar();
                 TreeControl.ClearTree();
             }
         }

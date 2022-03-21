@@ -9,5 +9,6 @@ namespace Core.Graph
     public class CommandsEventsGraph
     {
         public GraphNode[] Commands;
+        public GraphNode[] Events;
     }
 }

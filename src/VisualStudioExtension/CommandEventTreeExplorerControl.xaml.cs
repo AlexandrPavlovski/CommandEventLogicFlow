@@ -16,6 +16,7 @@ using EnvDTE;
 using Microsoft.VisualStudio;
 using VisualStudioExtension.ViewModels;
 using VisualStudioExtension.Misc;
+using System.Threading;
 
 namespace VisualStudioExtension
 {
@@ -28,9 +29,33 @@ namespace VisualStudioExtension
         }
 
 
-        public ObservableCollection<GraphNodeVM> Commands { get; set; }
+        private GraphNodeVM[] _commandsFirstTree;
+        private GraphNodeVM[] _eventsFirstTree;
 
-        private string _searchString { get; set; }
+        private GraphNodeVM[] _treeItems;
+        public GraphNodeVM[] TreeItems
+        {
+            get => _treeItems;
+            set
+            {
+                _treeItems = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private bool _isEventMode;
+        public bool IsEventMode
+        {
+            get => _isEventMode;
+            set
+            {
+                _isEventMode = value;
+                OnModeChanged(value);
+                OnPropertyChanged();
+            }
+        }
+
+        private string _searchString;
         public string SearchString 
         { 
             get => _searchString;
@@ -48,8 +73,6 @@ namespace VisualStudioExtension
         public CommandEventTreeExplorerControl()
         {
             _progressUpdater = new Progress<AnalysisProgress>(x => { progressText.Text = x.Description; progressBar.Value = x.Percent; });
-
-            Commands = new ObservableCollection<GraphNodeVM>();
 
             InitializeComponent();
             DataContext = this;
@@ -76,19 +99,23 @@ namespace VisualStudioExtension
             analyzeBtn.IsEnabled = false;
         }
 
-        public void EnableSearchBox()
+        public void EnableToolBar()
         {
             searchBoxContainer.Visibility = Visibility.Visible;
+            modeToggleBtn.IsEnabled = true;
         }
 
-        public void DisableSearchBox()
+        public void DisableToolBar()
         {
             searchBoxContainer.Visibility = Visibility.Collapsed;
+            modeToggleBtn.IsEnabled = false;
         }
 
         public void ClearTree()
         {
-            Commands.Clear();
+            TreeItems = null;
+            _commandsFirstTree = null;
+            _eventsFirstTree = null;
         }
 
         private async void AnalyzeBtn_Click(object sender, RoutedEventArgs e)
@@ -109,16 +136,29 @@ namespace VisualStudioExtension
             treeView.Visibility = Visibility.Collapsed;
             progressContainer.Visibility = Visibility.Visible;
 
-            await GodObject.Analyzer.StartAsync(_progressUpdater);
+            await System.Threading.Tasks.Task.Factory.StartNew(() =>
+                {
+                    var st = System.Diagnostics.Stopwatch.StartNew();
+                    GodObject.Analyzer.StartAsync(_progressUpdater).Wait();
+                    st.Stop();
+                    var lol = "KEK";
+                },
+                CancellationToken.None,
+                System.Threading.Tasks.TaskCreationOptions.None,
+                System.Threading.Tasks.TaskScheduler.Default);
+
             var graph = GodObject.Analyzer.GetCommandsEventsGraph();
 
             if (graph.Commands != null)
             {
-                foreach (var item in graph.Commands.OrderBy(x => x.Text))
-                {
-                    Commands.Add(new GraphNodeVM(item));
-                }
-                EnableSearchBox();
+                _commandsFirstTree = graph.Commands.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+                _eventsFirstTree = graph.Events.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+
+                TreeItems = _isEventMode
+                    ? _eventsFirstTree
+                    : _commandsFirstTree;
+
+                EnableToolBar();
             }
 
             progressContainer.Visibility = Visibility.Collapsed;
@@ -157,15 +197,7 @@ namespace VisualStudioExtension
                 return;
             }
 
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
-            using (new NewDocumentStateScope(__VSNEWDOCUMENTSTATE.NDS_Provisional, VSConstants.NewDocumentStateReason.SolutionExplorer))
-            {
-                dte.ItemOperations.OpenFile(codeLocation.FilePath);
-            }
-            // +1 is needed here because VS is displaying text with lines/characters starting from 1 not 0
-            (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(codeLocation.Line + 1, codeLocation.Character + 1);
+            await OpenFileAndMoveToLineAndCharacter(codeLocation.FilePath, codeLocation.Line + 1, codeLocation.Character + 1);
         }
 
         private void OnSearchStringChanged()
@@ -221,6 +253,17 @@ namespace VisualStudioExtension
             return false;
         }
 
+        private void OnModeChanged(bool isEventMode)
+        {
+            TreeItems = isEventMode
+                ? _eventsFirstTree
+                : _commandsFirstTree;
+
+            if (!string.IsNullOrEmpty(_searchString))
+            {
+                OnSearchStringChanged();
+            }
+        }
 
         private GraphNode GetTestData(string t)
         {
@@ -240,9 +283,27 @@ namespace VisualStudioExtension
             return node;
         }
 
-        private void MenuItem_Click_1(object sender, RoutedEventArgs e)
+        private async void OnKeyUp(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            if (e.Key != System.Windows.Input.Key.F12
+                || treeView.SelectedItem == null)
+                return;
 
+            var definitionLocation = ((GraphNodeVM)treeView.SelectedItem).DefinitionLocation;
+
+            await OpenFileAndMoveToLineAndCharacter(definitionLocation.FilePath, definitionLocation.Line + 1, definitionLocation.Character + 1);
+        }
+
+        private async System.Threading.Tasks.Task OpenFileAndMoveToLineAndCharacter(string filePath, int line, int character)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
+            using (new NewDocumentStateScope(__VSNEWDOCUMENTSTATE.NDS_Provisional, VSConstants.NewDocumentStateReason.SolutionExplorer))
+            {
+                dte.ItemOperations.OpenFile(filePath);
+            }
+            (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(line, character);
         }
     }
 }

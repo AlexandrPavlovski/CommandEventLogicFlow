@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Core.EqualityComparers;
 using Core.Graph;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -52,10 +54,7 @@ namespace Core
 
         public async Task StartAsync(IProgress<AnalysisProgress> progress = null)
         {
-            if (progress != null)
-            {
-                progress.Report(new AnalysisProgress(0, "Starting"));
-            }
+            progress.SafeReport(0, "Starting");
 
             _semanticModelsCache = new Dictionary<string, SemanticModel>();
             _commandInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);
@@ -66,10 +65,7 @@ namespace Core
             _methodsThatDirectlyInstantiateEvents = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
             _allInstantiatedTypesCache = new Dictionary<IMethodSymbol, List<ITypeSymbol>>(_symbolEqualityComparer);
 
-            if (progress != null)
-            {
-                progress.Report(new AnalysisProgress(10, "Getting solution compilation"));
-            }
+            progress.SafeReport(10, "Getting solution compilation");
 
             var workspace = MSBuildWorkspace.Create();
             _solution = await workspace.OpenSolutionAsync(_cfg.SolutionPath);
@@ -90,13 +86,12 @@ namespace Core
             compilation = await project.GetCompilationAsync();
             _eventInteraceTypeSymbol = compilation.GetTypeByMetadataName(_cfg.EventInterfaceTypeNameWithNamespace);
 
-            if (progress != null)
-            {
-                progress.Report(new AnalysisProgress(40, "Searching for commands and events"));
-            }
+            progress.SafeReport(40, "Searching for commands and events");
 
-            await FindInstantiationsAndHandlersAsync(_commandInteraceTypeSymbol, true);
-            await FindInstantiationsAndHandlersAsync(_eventInteraceTypeSymbol, false);
+            Task.WaitAll(
+                FindInstantiationsAndHandlersAsync(_commandInteraceTypeSymbol, true),
+                FindInstantiationsAndHandlersAsync(_eventInteraceTypeSymbol, false)
+            );
 
             //foreach (var item in _commandHandlers.Keys)
             //{
@@ -106,12 +101,9 @@ namespace Core
             //    }
             //}
 
-            if (progress != null)
-            {
-                progress.Report(new AnalysisProgress(70, "Building relations between commands and events"));
-            }
+            progress.SafeReport(70, "Building relations between commands and events");
 
-            await FindCommandToEventRelations();
+            FindCommandToEventRelations();
 
             //File.WriteAllLines(@"C:/temp.cs", temp);
         }
@@ -122,29 +114,97 @@ namespace Core
 
             if (_commandInstantiations.Any())
             {
+                // building commands-first tree
                 graph.Commands = new GraphNode[_commandHandlers.Keys.Count];
                 for (int i = 0; i < graph.Commands.Length; i++)
                 {
                     var cmdSmbl = _commandHandlers.Keys.ElementAt(i);
                     var graphNode = graph.Commands[i] = new GraphNode();
                     var path = new HashSet<string>();
-                    BuildTreeRecursively(graphNode, cmdSmbl, path);
+                    BuildCommandsFirstTreeRecursively(graphNode, cmdSmbl, path);
+                }
+
+                // building events-first tree
+                var gnec = new GraphNodeEqualityComparer();
+                var eventsToCommandsLookup = new Dictionary<GraphNode, HashSet<GraphNode>>(_eventHandlers.Keys.Count, gnec);
+                var commandsToEventsLookup = new Dictionary<GraphNode, HashSet<GraphNode>>(_commandHandlers.Keys.Count, gnec);
+                void FindBackwardRelationsRecursively(GraphNode node)
+                {
+                    if (node.Children == null) return;
+
+                    var lookup = node.Type == GraphNodeType.Command
+                        ? eventsToCommandsLookup
+                        : commandsToEventsLookup;
+                    for (int i = 0; i < node.Children.Count; i++)
+                    {
+                        var child = node.Children[i];
+                        if (lookup.TryGetValue(child, out var parents))
+                        {
+                            parents.Add(node);
+                        }
+                        else
+                        {
+                            lookup[child] = new HashSet<GraphNode>(gnec) { node };
+                        }
+
+                        FindBackwardRelationsRecursively(child);
+                    }
+                }
+                for (int i = 0; i < graph.Commands.Length; i++)
+                {
+                    FindBackwardRelationsRecursively(graph.Commands[i]);
+                }
+
+                void BuildEventsFirstTreeRecursively(GraphNode eventNode, HashSet<string> eventsAlreadyAddedToTree, int d = 0)
+                {
+                    if (eventsAlreadyAddedToTree.Contains(eventNode.Text))
+                    {
+                        eventNode.IsRepeatedInTree = true;
+                        return;
+                    }
+                    eventsAlreadyAddedToTree.Add(eventNode.Text);
+
+                    if (!eventsToCommandsLookup.TryGetValue(eventNode, out var commands)) return;
+                    eventNode.Children = commands.Select(x => x.MakeChildfreeCopy()).ToList();
+
+                    for (int i = 0; i < eventNode.Children.Count; i++)
+                    {
+                        var cmd = eventNode.Children[i];
+                        if (!commandsToEventsLookup.TryGetValue(cmd, out var events)) continue;
+                        cmd.Children = events.Select(x => x.MakeChildfreeCopy()).ToList();
+
+                        for (int j = 0; j < cmd.Children.Count; j++)
+                        {
+                            BuildEventsFirstTreeRecursively(cmd.Children[j], eventsAlreadyAddedToTree, d + 1);
+                        }
+                    }
+
+                    eventsAlreadyAddedToTree.Remove(eventNode.Text);
+                }
+                graph.Events = new GraphNode[eventsToCommandsLookup.Keys.Count];
+                for (int i = 0; i < graph.Events.Length; i++)
+                {
+                    graph.Events[i] = eventsToCommandsLookup.Keys.ElementAt(i).MakeChildfreeCopy();
+                    var path = new HashSet<string>();
+                    BuildEventsFirstTreeRecursively(graph.Events[i], path);
                 }
             }
 
             return graph;
         }
 
-        private void BuildTreeRecursively(GraphNode commandNode, ITypeSymbol commandSymbol, HashSet<string> commandsAlreadyAddedToTree, int d = 0)
+        private void BuildCommandsFirstTreeRecursively(GraphNode commandNode, ITypeSymbol commandSymbol, HashSet<string> commandsAlreadyAddedToTree, int d = 0)
         {
             if (commandsAlreadyAddedToTree.Contains(commandSymbol.Name))
             {
+                commandNode.IsRepeatedInTree = true;
                 return;
             }
             commandsAlreadyAddedToTree.Add(commandSymbol.Name);
 
             commandNode.Text = commandSymbol.Name;
             commandNode.Type = GraphNodeType.Command;
+            commandNode.TypeSymbol = commandSymbol;
             commandNode.Handlers = _commandHandlers[commandSymbol];
 
             if (_commandInstantiations.TryGetValue(commandSymbol, out var cInst))
@@ -160,7 +220,8 @@ namespace Core
                     var eventNode = new GraphNode
                     {
                         Text = eventSymbol.Name,
-                        Type = GraphNodeType.Event
+                        Type = GraphNodeType.Event,
+                        TypeSymbol = eventSymbol
                     };
 
                     if (_eventInstantiations.TryGetValue(eventSymbol, out var eInst))
@@ -181,16 +242,19 @@ namespace Core
                                 {
                                     Text = cmdSmbl.Name,
                                     Type = GraphNodeType.Command,
+                                    TypeSymbol = cmdSmbl,
                                     Handlers = _commandHandlers[cmdSmbl],
-                                    Instantiations = _commandInstantiations[cmdSmbl]
+                                    Instantiations = _commandInstantiations[cmdSmbl],
                                 };
-                            eventNode.AddChild(cmdNode);
-                                BuildTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
+                                eventNode.AddChild(cmdNode);
+                                BuildCommandsFirstTreeRecursively(cmdNode, cmdSmbl, commandsAlreadyAddedToTree, d + 1);
                             }
                         }
                     }
                 }
             }
+
+            commandsAlreadyAddedToTree.Remove(commandSymbol.Name);
         }
 
         private async Task FindInstantiationsAndHandlersAsync(ITypeSymbol typeSymbol, bool isCommand)
@@ -311,6 +375,41 @@ namespace Core
 
         private async Task FindCommandToEventRelations()
         {
+            //void ProcessInParallel(Dictionary<ITypeSymbol, List<HandlerInfo>> handlersLookup)
+            //{
+            //    var handlers = handlersLookup.SelectMany(x => x.Value).ToArray();
+            //    var batchSize = (int)Math.Ceiling((float)handlers.Length / Environment.ProcessorCount);
+
+            //    var topTasks = new Task[Environment.ProcessorCount];
+            //    for (int i = 0; i < Environment.ProcessorCount; i++)
+            //    {
+            //        var thread = new Thread()
+            //        topTasks[i] = Task.Factory.StartNew(() =>
+            //        {
+            //            var tasks = handlers.Skip(i * batchSize).Take(batchSize)
+            //                .Select(y => GetInstantiatedTypesWithinCallTreeAsync(y.MethodNode, y.MethodSymbol, isCommandHandler: true))
+            //                .ToArray();
+            //            Task.WaitAll(tasks);
+            //        });
+            //    }
+            //    Task.WaitAll(topTasks);
+            //}
+
+            //ProcessInParallel(_commandHandlers);
+            //ProcessInParallel(_eventHandlers);
+
+
+
+            //var cmdTasks = _commandHandlers
+            //    .SelectMany(x => x.Value)
+            //    .Select(y => GetInstantiatedTypesWithinCallTreeAsync(y.MethodNode, y.MethodSymbol, isCommandHandler: true));
+            //var evtTasks = _eventHandlers
+            //    .SelectMany(x => x.Value)
+            //    .Select(y => GetInstantiatedTypesWithinCallTreeAsync(y.MethodNode, y.MethodSymbol, isCommandHandler: false));
+            //Task.WaitAll(cmdTasks.Union(evtTasks).ToArray());
+
+
+
             foreach (var handlersKVP in _commandHandlers)
             {
                 foreach (var handlerInfo in handlersKVP.Value)
@@ -384,7 +483,7 @@ namespace Core
                 {
                     // detecting circular calls
                     // the code analyzed may not have such calls
-                    // but this analyzer is not perfect and can stuck in a loop
+                    // but this analyzer is not perfect and can get stuck in a loop
                     if (alreadyVisitedMethods.Contains(implementation.ToString()))
                     {
                         continue;
@@ -403,8 +502,6 @@ namespace Core
 
                     var syntaxRef = implementation.DeclaringSyntaxReferences.First();
                     var calledMethodDeclarationNode = syntaxRef.SyntaxTree.GetRoot().FindNode(syntaxRef.Span);
-
-                    if (depth > 1000) System.Diagnostics.Debugger.Break();
 
                     var typesInstantiatedWithin = await GetInstantiatedTypesWithinCallTreeAsync(
                         calledMethodDeclarationNode,

@@ -11,7 +11,8 @@
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="600"
-             Name="MyToolWindow">
+             Name="MyToolWindow"
+             KeyUp="OnKeyUp">
 
     <UserControl.Resources>
         <cnvr:CommandEventToIconConverter x:Key="CommandEventToIconConverter" />
@@ -51,6 +52,33 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
+
+            <ToggleButton x:Name="modeToggleBtn" ToolTip="" Width="22" Height="22" Margin="5,0,0,0" ClickMode="Press" IsEnabled="False" IsChecked="{Binding IsEventMode}">
+                <ToggleButton.Template>
+                    <ControlTemplate>
+                        <Grid x:Name="Grid" Background="Transparent">
+                            <Border x:Name="bor" BorderThickness="1">
+                                <Image x:Name="img" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="UIElement.IsMouseOver" Value="True">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarMouseOverBackgroundGradientKey}}" />
+                                <Setter Property="Border.BorderBrush" TargetName="bor" Value="{DynamicResource {x:Static vspui:EnvironmentColors.ToolWindowTabBorderBrushKey}}" />
+                            </Trigger>
+                            <Trigger Property="UIElement.IsEnabled" Value="False">
+                                <Setter Property="Panel.Background" TargetName="Grid" Value="Transparent" />
+                            </Trigger>
+                            <Trigger Property="ToggleButton.IsChecked" Value="False">
+                                <Setter TargetName="img" Property="Source" Value="pack://application:,,,/VisualStudioExtension;Component/Resources/IconCommandMode.png" />
+                            </Trigger>
+                            <Trigger Property="ToggleButton.IsChecked" Value="True">
+                                <Setter TargetName="img" Property="Source" Value="pack://application:,,,/VisualStudioExtension;Component/Resources/IconEventMode.png" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </ToggleButton.Template>
+            </ToggleButton>
         </StackPanel>
         
         <Grid Grid.Row="1" Height="21" x:Name="searchBoxContainer" Visibility="Collapsed">
@@ -108,12 +136,11 @@
             </Button>
         </Grid>
 
-        <TreeView x:Name="treeView" Grid.Row="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding Commands}" BorderThickness="0"
+        <TreeView x:Name="treeView" Grid.Row="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ItemsSource="{Binding TreeItems}" BorderThickness="0"
                   Background="Transparent">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                     <StackPanel Orientation="Horizontal">
-                        
                         <Image Source="{Binding Path=Type, Converter={StaticResource CommandEventToIconConverter}}" Margin="0,0,4,0" ToolTip="{Binding Type}" />
                         <TextBlock Text="{Binding Text}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -141,7 +168,6 @@
                                             </ContextMenu.ItemContainerStyle>
                                             <ContextMenu.ItemsSource>
                                                 <CompositeCollection>
-                                                    <!--<MenuItem Header="LOL" Tag="KEK" />-->
                                                     <StaticResource ResourceKey="handlers" />
                                                     <Separator />
                                                     <StaticResource ResourceKey="instantiations" />

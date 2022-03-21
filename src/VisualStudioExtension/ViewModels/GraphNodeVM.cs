@@ -13,16 +13,28 @@ namespace VisualStudioExtension.ViewModels
         public List<HandlerInfoVM> Handlers { get; set; }
         public List<InstantiationInfoVM> Instantiations { get; set; }
         public List<GraphNodeVM> Children { get; set; }
+        public CodeLocation DefinitionLocation { get; set; }
 
 
-        public GraphNodeVM(GraphNode gn)
+        public GraphNodeVM(GraphNode gn, int d = 0)
         {
             Type = gn.Type;
             Text = gn.Text;
 
+            if (gn.IsRepeatedInTree) Text += "*";
+
+            var definitionLocation = gn.TypeSymbol.OriginalDefinition.Locations[0];
+            var definitionStartLinePosition = definitionLocation.GetMappedLineSpan().StartLinePosition;
+            DefinitionLocation = new CodeLocation
+            {
+                FilePath = definitionLocation.SourceTree.FilePath,
+                Line = definitionStartLinePosition.Line,
+                Character = definitionStartLinePosition.Character
+            };
+
             if (gn.Children != null)
             {
-                Children = gn.Children.Select(x => new GraphNodeVM(x)).ToList();
+                Children = gn.Children.Select(x => new GraphNodeVM(x, d + 1)).ToList();
             }
 
             if (gn.Handlers == null)
@@ -59,11 +71,7 @@ namespace VisualStudioExtension.ViewModels
                     var instantiation = x.First();
                     if (x.Count() == 1)
                     {
-                        var containingType = instantiation.ContainingMethodSymbol.ContainingType.ToDisplayString();
-                        var containingMethod = instantiation.ContainingMethodSymbol.Name;
-                        var text = $"{containingType}->{containingMethod}()";
-
-                        return GetInstantiationInfoVM(instantiation, text);
+                        return GetInstantiationInfoVM(instantiation, instantiation.ToFullMethodName());
                     }
                     else
                     {
@@ -73,7 +81,7 @@ namespace VisualStudioExtension.ViewModels
                             ProjectName = instantiation.ReferenceLocation.Document.Project.Name
                         };
 
-                        inst.Methods = x.Select(i => GetInstantiationInfoVM(i, $"{i.ContainingMethodSymbol.Name}()")).ToList();
+                        inst.Methods = x.Select(i => GetInstantiationInfoVM(i, i.ToShortMethodName())).ToList();
 
                         return inst;
                     }
