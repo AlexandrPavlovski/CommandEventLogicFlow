@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 
 namespace VisualStudioExtension
 {
+#pragma warning disable CVST002 // Make DialogPage implementations visible to COM
     public class OptionPageGrid : DialogPage
+#pragma warning restore CVST002 // Make DialogPage implementations visible to COM
     {
         [Category("My Category")]
         [DisplayName("Project That Contains Command Interface")]

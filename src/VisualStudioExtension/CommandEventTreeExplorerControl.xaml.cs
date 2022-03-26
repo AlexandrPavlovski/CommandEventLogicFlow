@@ -136,33 +136,42 @@ namespace VisualStudioExtension
             treeView.Visibility = Visibility.Collapsed;
             progressContainer.Visibility = Visibility.Visible;
 
-            await System.Threading.Tasks.Task.Factory.StartNew(() =>
-                {
-                    var st = System.Diagnostics.Stopwatch.StartNew();
-                    GodObject.Analyzer.StartAsync(_progressUpdater).Wait();
-                    st.Stop();
-                    var lol = "KEK";
-                },
-                CancellationToken.None,
-                System.Threading.Tasks.TaskCreationOptions.None,
-                System.Threading.Tasks.TaskScheduler.Default);
-
-            var graph = GodObject.Analyzer.GetCommandsEventsGraph();
-
-            if (graph.Commands != null)
+            try
             {
-                _commandsFirstTree = graph.Commands.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
-                _eventsFirstTree = graph.Events.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+                await System.Threading.Tasks.Task.Factory.StartNew(() =>
+                    {
+                        var st = System.Diagnostics.Stopwatch.StartNew();
+                        GodObject.Analyzer.StartAsync(_progressUpdater).Wait();
+                        st.Stop();
+                    },
+                    CancellationToken.None,
+                    System.Threading.Tasks.TaskCreationOptions.None,
+                    System.Threading.Tasks.TaskScheduler.Default);
 
-                TreeItems = _isEventMode
-                    ? _eventsFirstTree
-                    : _commandsFirstTree;
+                var graph = GodObject.Analyzer.GetCommandsEventsGraph();
 
-                EnableToolBar();
+                if (graph.Commands != null)
+                {
+                    _commandsFirstTree = graph.Commands.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+                    _eventsFirstTree = graph.Events.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+
+                    TreeItems = _isEventMode
+                        ? _eventsFirstTree
+                        : _commandsFirstTree;
+
+                    EnableToolBar();
+                }
+
+                progressContainer.Visibility = Visibility.Collapsed;
+                treeView.Visibility = Visibility.Visible;
             }
+            catch (Exception ex)
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            progressContainer.Visibility = Visibility.Collapsed;
-            treeView.Visibility = Visibility.Visible;
+                _progressUpdater.Report(new AnalysisProgress(0, "Error =(\r\nSee Output Window -> Extensions for details"));
+                ex.Log();
+            }
 
             EnableAnalyzeButton();
 #endif

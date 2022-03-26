@@ -103,7 +103,7 @@ namespace Core
 
             progress.SafeReport(70, "Building relations between commands and events");
 
-            FindCommandToEventRelations();
+            await FindCommandToEventRelations();
 
             //File.WriteAllLines(@"C:/temp.cs", temp);
         }

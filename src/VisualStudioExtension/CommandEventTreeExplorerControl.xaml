@@ -351,7 +351,7 @@
 
         <StackPanel x:Name="progressContainer" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Stretch" Visibility="Collapsed" >
             <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
-                <TextBlock x:Name="progressText" Margin="0 0 0 5" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="progressText" Margin="0 0 0 5" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="260" TextAlignment="Center"/>
                 <ProgressBar x:Name="progressBar" Minimum="0" Maximum="100" Width="150" Height="10"/>
             </StackPanel>
         </StackPanel>
