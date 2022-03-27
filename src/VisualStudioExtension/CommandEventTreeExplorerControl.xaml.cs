@@ -1,22 +1,19 @@
-﻿using Core.Graph;
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Windows;
-using System.Windows.Controls;
-using System.Linq;
+﻿using Community.VisualStudio.Toolkit;
 using Core;
+using EnvDTE;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Collections.Generic;
-using System.Windows.Media;
-using EnvDTE;
-using Microsoft.VisualStudio;
-using VisualStudioExtension.ViewModels;
-using VisualStudioExtension.Misc;
 using System.Threading;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using VisualStudioExtension.Misc;
+using VisualStudioExtension.ViewModels;
 using Task = System.Threading.Tasks.Task;
 
 namespace VisualStudioExtension
@@ -151,8 +148,7 @@ namespace VisualStudioExtension
 
                 if (cfg.IsEmpty())
                 {
-                    _progressUpdater.Report(new AnalysisProgress(0, "First configure the extension.\r\nTools -> Options -> Command event logic flow"));
-                    progressBar.Visibility = Visibility.Collapsed;
+                    VS.MessageBox.Show("Settings are not set", "Navigate to 'Tools -> Options -> Command event logic flow' and provide all necessary settings", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK);
                 }
                 else
                 {
@@ -180,9 +176,6 @@ namespace VisualStudioExtension
 
                         EnableToolBar();
                     }
-
-                    progressContainer.Visibility = Visibility.Collapsed;
-                    treeView.Visibility = Visibility.Visible;
                 }
             }
             catch (Exception ex)
@@ -190,6 +183,8 @@ namespace VisualStudioExtension
                 HandleException(ex);
             }
 
+            progressContainer.Visibility = Visibility.Collapsed;
+            treeView.Visibility = Visibility.Visible;
             EnableAnalyzeButton();
 #endif
         }
@@ -225,7 +220,7 @@ namespace VisualStudioExtension
                     return;
                 }
 
-                await OpenFileAndMoveToLineAndCharacter(codeLocation.FilePath, codeLocation.Line + 1, codeLocation.Character + 1);
+                await OpenFileAndMoveToLineAndCharacterAsync(codeLocation.FilePath, codeLocation.Line + 1, codeLocation.Character + 1);
             }
             catch (Exception ex)
             {
@@ -308,7 +303,7 @@ namespace VisualStudioExtension
 
                 var definitionLocation = ((GraphNodeVM)treeView.SelectedItem).DefinitionLocation;
 
-                await OpenFileAndMoveToLineAndCharacter(definitionLocation.FilePath, definitionLocation.Line + 1, definitionLocation.Character + 1);
+                await OpenFileAndMoveToLineAndCharacterAsync(definitionLocation.FilePath, definitionLocation.Line + 1, definitionLocation.Character + 1);
             }
             catch (Exception ex)
             {
@@ -316,7 +311,7 @@ namespace VisualStudioExtension
             }
         }
 
-        private async Task OpenFileAndMoveToLineAndCharacter(string filePath, int line, int character)
+        private async Task OpenFileAndMoveToLineAndCharacterAsync(string filePath, int line, int character)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
@@ -330,9 +325,8 @@ namespace VisualStudioExtension
 
         private void HandleException(Exception ex)
         {
-            _progressUpdater.Report(new AnalysisProgress(0, "Error =(\r\nSee Output Window -> Extensions for details"));
-            progressBar.Visibility = Visibility.Collapsed;
             ex.Log();
+            VS.MessageBox.Show("Error =(", "See Output Window -> Extensions for details", OLEMSGICON.OLEMSGICON_CRITICAL, OLEMSGBUTTON.OLEMSGBUTTON_OK);
         }
     }
 }
