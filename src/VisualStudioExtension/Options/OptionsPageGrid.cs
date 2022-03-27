@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.Shell;
+﻿using Core;
+using Microsoft.VisualStudio.Shell;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -36,5 +37,18 @@ namespace VisualStudioExtension
         [Category("My Category")]
         [DisplayName("Handler Marker Interface Type Name With Namespace")]
         public string HandlerMarkerInterfaceTypeNameWithNamespace { get; set; }
+
+        public Config GetConfig()
+        {
+            return new Config()
+            {
+                ProjectThatContainsCommandInterface = ProjectThatContainsCommandInterface,
+                ProjectThatContainsEventInterface = ProjectThatContainsEventInterface,
+                CommandInterfaceTypeNameWithNamespace = CommandInterfaceTypeNameWithNamespace,
+                EventInterfaceTypeNameWithNamespace = EventInterfaceTypeNameWithNamespace,
+                HandlerMethodNames = HandlerMethodNames,
+                HandlerMarkerInterfaceTypeNameWithNamespace = HandlerMarkerInterfaceTypeNameWithNamespace
+            };
+        }
     }
 }

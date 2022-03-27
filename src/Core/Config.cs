@@ -15,5 +15,16 @@ namespace Core
         public string EventInterfaceTypeNameWithNamespace { get; set; }
         public string[] HandlerMethodNames { get; set; }
         public string HandlerMarkerInterfaceTypeNameWithNamespace { get; set; }
+
+        public bool IsEmpty()
+        {
+            return SolutionPath == null 
+                || ProjectThatContainsCommandInterface == null
+                || ProjectThatContainsEventInterface == null
+                || CommandInterfaceTypeNameWithNamespace == null
+                || EventInterfaceTypeNameWithNamespace == null
+                || HandlerMethodNames == null
+                || HandlerMarkerInterfaceTypeNameWithNamespace == null;
+        }
     }
 }

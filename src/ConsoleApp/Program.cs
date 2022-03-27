@@ -32,10 +32,10 @@ namespace ConsoleApp
             //var t = MSBuildLocator.QueryVisualStudioInstances().First();
             //MSBuildLocator.RegisterInstance(t);
 
-            var analyzer = new Analyzer(cfg);
+            var analyzer = new Analyzer();
 
             var st = System.Diagnostics.Stopwatch.StartNew();
-            await analyzer.StartAsync();
+            await analyzer.StartAsync(cfg);
             st.Stop();
 
             var g = analyzer.GetCommandsEventsGraph();

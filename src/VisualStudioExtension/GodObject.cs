@@ -13,6 +13,8 @@ namespace VisualStudioExtension
     static class GodObject
     {
         public static Analyzer Analyzer { get; set; }
+        public static Package Package { get; set; }
+
 
         private static CommandEventTreeExplorerControl _treeControl;
         public static CommandEventTreeExplorerControl TreeControl
@@ -36,14 +38,8 @@ namespace VisualStudioExtension
 
         private static bool IsSolutionOpen;
 
-        public static async void HandleAfterOpenSolution(object sender = null, OpenSolutionEventArgs e = null)
+        public static void HandleAfterOpenSolution(object sender = null, OpenSolutionEventArgs e = null)
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            var solution = (IVsSolution)Package.GetGlobalService(typeof(IVsSolution));
-            solution.GetSolutionInfo(out _, out string solutionFilePath, out _);
-
-            Analyzer.SetSolutionPath(solutionFilePath);
             IsSolutionOpen = true;
             if (TreeControl != null)
             {

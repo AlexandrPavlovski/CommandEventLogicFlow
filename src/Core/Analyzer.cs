@@ -16,7 +16,7 @@ namespace Core
 {
     public class Analyzer
     {
-        private readonly Config _cfg;
+        private Config _cfg;
 
         private const int MethodsCalledByHadlersCachingDepth = 2;
 
@@ -42,19 +42,11 @@ namespace Core
         private List<string> temp = new List<string>();
 
 
-        public Analyzer(Config cfg)
-        {
-            _cfg = cfg;
-        }
-
-        public void SetSolutionPath(string solutionPath)
-        {
-            _cfg.SolutionPath = solutionPath;
-        }
-
-        public async Task StartAsync(IProgress<AnalysisProgress> progress = null)
+        public async Task StartAsync(Config cfg, IProgress<AnalysisProgress> progress = null)
         {
             progress.SafeReport(0, "Starting");
+
+            _cfg = cfg;
 
             _semanticModelsCache = new Dictionary<string, SemanticModel>();
             _commandInstantiations = new Dictionary<ITypeSymbol, List<InstantiationInfo>>(_symbolEqualityComparer);

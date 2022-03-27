@@ -62,30 +62,11 @@ namespace VisualStudioExtension
             //var solution = workspace.CurrentSolution;
             //var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
 
-
-            OptionPageGrid page = (OptionPageGrid)GetDialogPage(typeof(OptionPageGrid));
-            var cfg = new Config();
-
-            cfg.ProjectThatContainsCommandInterface = page.ProjectThatContainsCommandInterface;
-            cfg.ProjectThatContainsEventInterface = page.ProjectThatContainsEventInterface;
-            cfg.CommandInterfaceTypeNameWithNamespace = page.CommandInterfaceTypeNameWithNamespace;
-            cfg.EventInterfaceTypeNameWithNamespace = page.EventInterfaceTypeNameWithNamespace;
-            cfg.HandlerMethodNames = page.HandlerMethodNames;
-            cfg.HandlerMarkerInterfaceTypeNameWithNamespace = page.HandlerMarkerInterfaceTypeNameWithNamespace;
-
-
-            // When initialized asynchronously, the current thread may be a background thread at this point.
-            // Do any initialization that requires the UI thread after switching to the UI thread.
-            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
-            var solution = (IVsSolution)GetGlobalService(typeof(IVsSolution));
-            solution.GetSolutionInfo(out _, out string solutionFilePath, out _);
-            cfg.SolutionPath = solutionFilePath;
-
-            var analyzer = new Analyzer(cfg);
-            GodObject.Analyzer = analyzer;
-
             await CommandEventTreeExplorerCommand.InitializeAsync(this);
+
+            var analyzer = new Analyzer();
+            GodObject.Analyzer = analyzer;
+            GodObject.Package = this;
 
 #if !TESTING
             SolutionEvents.OnAfterOpenSolution += GodObject.HandleAfterOpenSolution;

@@ -17,6 +17,7 @@ using Microsoft.VisualStudio;
 using VisualStudioExtension.ViewModels;
 using VisualStudioExtension.Misc;
 using System.Threading;
+using Task = System.Threading.Tasks.Task;
 
 namespace VisualStudioExtension
 {
@@ -138,39 +139,55 @@ namespace VisualStudioExtension
 
             try
             {
-                await System.Threading.Tasks.Task.Factory.StartNew(() =>
+                var settings = (OptionPageGrid)GodObject.Package.GetDialogPage(typeof(OptionPageGrid));
+                var cfg = settings.GetConfig();
+
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                var solution = (IVsSolution)Package.GetGlobalService(typeof(IVsSolution));
+                solution.GetSolutionInfo(out _, out string solutionFilePath, out _);
+
+                cfg.SolutionPath = solutionFilePath;
+
+                if (cfg.IsEmpty())
+                {
+                    _progressUpdater.Report(new AnalysisProgress(0, "First configure the extension.\r\nTools -> Options -> Command event logic flow"));
+                    progressBar.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    await Task.Factory.StartNew(() =>
                     {
                         var st = System.Diagnostics.Stopwatch.StartNew();
-                        GodObject.Analyzer.StartAsync(_progressUpdater).Wait();
+                        GodObject.Analyzer.StartAsync(cfg, _progressUpdater).Wait();
                         st.Stop();
                     },
-                    CancellationToken.None,
-                    System.Threading.Tasks.TaskCreationOptions.None,
-                    System.Threading.Tasks.TaskScheduler.Default);
+                        CancellationToken.None,
+                        System.Threading.Tasks.TaskCreationOptions.None,
+                        System.Threading.Tasks.TaskScheduler.Default
+                    );
 
-                var graph = GodObject.Analyzer.GetCommandsEventsGraph();
+                    var graph = GodObject.Analyzer.GetCommandsEventsGraph();
 
-                if (graph.Commands != null)
-                {
-                    _commandsFirstTree = graph.Commands.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
-                    _eventsFirstTree = graph.Events.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+                    if (graph.Commands != null)
+                    {
+                        _commandsFirstTree = graph.Commands.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
+                        _eventsFirstTree = graph.Events.Select(x => new GraphNodeVM(x)).OrderBy(x => x.Text).ToArray();
 
-                    TreeItems = _isEventMode
-                        ? _eventsFirstTree
-                        : _commandsFirstTree;
+                        TreeItems = _isEventMode
+                            ? _eventsFirstTree
+                            : _commandsFirstTree;
 
-                    EnableToolBar();
+                        EnableToolBar();
+                    }
+
+                    progressContainer.Visibility = Visibility.Collapsed;
+                    treeView.Visibility = Visibility.Visible;
                 }
-
-                progressContainer.Visibility = Visibility.Collapsed;
-                treeView.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-                _progressUpdater.Report(new AnalysisProgress(0, "Error =(\r\nSee Output Window -> Extensions for details"));
-                ex.Log();
+                HandleException(ex);
             }
 
             EnableAnalyzeButton();
@@ -200,13 +217,20 @@ namespace VisualStudioExtension
 
         private async void MenuItem_Click(object sender, RoutedEventArgs e)
         {
-            var codeLocation = ((MenuItem)sender).Tag as CodeLocation;
-            if (codeLocation == null)
+            try
             {
-                return;
-            }
+                var codeLocation = ((MenuItem)sender).Tag as CodeLocation;
+                if (codeLocation == null)
+                {
+                    return;
+                }
 
-            await OpenFileAndMoveToLineAndCharacter(codeLocation.FilePath, codeLocation.Line + 1, codeLocation.Character + 1);
+                await OpenFileAndMoveToLineAndCharacter(codeLocation.FilePath, codeLocation.Line + 1, codeLocation.Character + 1);
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex);
+            }
         }
 
         private void OnSearchStringChanged()
@@ -274,36 +298,25 @@ namespace VisualStudioExtension
             }
         }
 
-        private GraphNode GetTestData(string t)
-        {
-            var node = new GraphNode() { Text = t, Handlers2 = new List<string> { "asdasdad", "wrfw23rf234few" } };
-
-            for (int i = 0; i < 10; i++)
-            {
-                var node2 = new GraphNode() { Text = i.ToString() + " asdasdasdijoijoij ojijo joi jio asd", Type = GraphNodeType.Event };
-                node.AddChild(node2);
-
-                for (int k = 0; k < 10; k++)
-                {
-                    node2.AddChild(new GraphNode() { Text = i.ToString() + k.ToString() + " 13312123123 123 123 123  joi jio asd" });
-                }
-            }
-
-            return node;
-        }
-
         private async void OnKeyUp(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key != System.Windows.Input.Key.F12
-                || treeView.SelectedItem == null)
-                return;
+            try
+            {
+                if (e.Key != System.Windows.Input.Key.F12
+                        || treeView.SelectedItem == null)
+                    return;
 
-            var definitionLocation = ((GraphNodeVM)treeView.SelectedItem).DefinitionLocation;
+                var definitionLocation = ((GraphNodeVM)treeView.SelectedItem).DefinitionLocation;
 
-            await OpenFileAndMoveToLineAndCharacter(definitionLocation.FilePath, definitionLocation.Line + 1, definitionLocation.Character + 1);
+                await OpenFileAndMoveToLineAndCharacter(definitionLocation.FilePath, definitionLocation.Line + 1, definitionLocation.Character + 1);
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex);
+            }
         }
 
-        private async System.Threading.Tasks.Task OpenFileAndMoveToLineAndCharacter(string filePath, int line, int character)
+        private async Task OpenFileAndMoveToLineAndCharacter(string filePath, int line, int character)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
@@ -313,6 +326,13 @@ namespace VisualStudioExtension
                 dte.ItemOperations.OpenFile(filePath);
             }
             (dte.ActiveDocument.Selection as TextSelection).MoveToLineAndOffset(line, character);
+        }
+
+        private void HandleException(Exception ex)
+        {
+            _progressUpdater.Report(new AnalysisProgress(0, "Error =(\r\nSee Output Window -> Extensions for details"));
+            progressBar.Visibility = Visibility.Collapsed;
+            ex.Log();
         }
     }
 }
